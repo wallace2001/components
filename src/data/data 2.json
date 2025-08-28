@@ -1,0 +1,1050 @@
+[
+  {
+    "year": 2022,
+    "product": "Contraparte A",
+    "month": "Abril",
+    "mtm": 939.07,
+    "net_v": -366.81,
+    "net_f": -298.27
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte A",
+    "month": "Maio",
+    "mtm": -463.05,
+    "net_v": -251.28,
+    "net_f": 57.74
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte A",
+    "month": "Julho",
+    "mtm": -631.33,
+    "net_v": 376.66,
+    "net_f": 106.1
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte A",
+    "month": "Agosto",
+    "mtm": -1488.49,
+    "net_v": 178.16,
+    "net_f": -184.01
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte A",
+    "month": "Novembro",
+    "mtm": -210.62,
+    "net_v": -246.32,
+    "net_f": -121.23
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte B",
+    "month": "Janeiro",
+    "mtm": -836.81,
+    "net_v": -456.6,
+    "net_f": -481.76
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte B",
+    "month": "Fevereiro",
+    "mtm": 146.73,
+    "net_v": 305.04,
+    "net_f": 252.4
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte B",
+    "month": "Abril",
+    "mtm": -922.07,
+    "net_v": 410.47,
+    "net_f": -43
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte B",
+    "month": "Julho",
+    "mtm": 1781.32,
+    "net_v": -175.38,
+    "net_f": -406.46
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte B",
+    "month": "Setembro",
+    "mtm": -128.65,
+    "net_v": -366.15,
+    "net_f": 327.94
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte B",
+    "month": "Outubro",
+    "mtm": -316.24,
+    "net_v": 413.17,
+    "net_f": 133.76
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte B",
+    "month": "Novembro",
+    "mtm": 930.5,
+    "net_v": -139.65,
+    "net_f": 6.1
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte B",
+    "month": "Dezembro",
+    "mtm": -409.42,
+    "net_v": -262.49,
+    "net_f": -492.47
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte C",
+    "month": "Janeiro",
+    "mtm": -109.51,
+    "net_v": -635.72,
+    "net_f": 23
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte C",
+    "month": "Março",
+    "mtm": 688.43,
+    "net_v": -94.8,
+    "net_f": -162.55
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte C",
+    "month": "Abril",
+    "mtm": 161.09,
+    "net_v": -88.34,
+    "net_f": -243.98
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte C",
+    "month": "Junho",
+    "mtm": 276.54,
+    "net_v": 69.08,
+    "net_f": 221.6
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte C",
+    "month": "Julho",
+    "mtm": 613.83,
+    "net_v": -225.27,
+    "net_f": 124.1
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte C",
+    "month": "Agosto",
+    "mtm": 684.05,
+    "net_v": -46.76,
+    "net_f": -179.36
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte C",
+    "month": "Outubro",
+    "mtm": 734.4,
+    "net_v": -19.95,
+    "net_f": -4.58
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Fevereiro",
+    "mtm": -498.28,
+    "net_v": -417.25,
+    "net_f": -26.83
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Março",
+    "mtm": 773.36,
+    "net_v": -477.82,
+    "net_f": 31.86
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Maio",
+    "mtm": 964.7,
+    "net_v": 440.05,
+    "net_f": 276.82
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Junho",
+    "mtm": 74.16,
+    "net_v": 146.85,
+    "net_f": 29.84
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Julho",
+    "mtm": 191.12,
+    "net_v": 59.34,
+    "net_f": -229.01
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Agosto",
+    "mtm": 601.9,
+    "net_v": 284.67,
+    "net_f": 73.15
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Setembro",
+    "mtm": -989.63,
+    "net_v": 424.64,
+    "net_f": 196.96
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Outubro",
+    "mtm": -406.98,
+    "net_v": 302.11,
+    "net_f": 305.86
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Novembro",
+    "mtm": 937.3,
+    "net_v": -366.88,
+    "net_f": 87.07
+  },
+  {
+    "year": 2022,
+    "product": "Contraparte D",
+    "month": "Dezembro",
+    "mtm": -811.69,
+    "net_v": 226.12,
+    "net_f": -183.8
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Janeiro",
+    "mtm": 108.7,
+    "net_v": 0.19,
+    "net_f": 700.53
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Fevereiro",
+    "mtm": -570.82,
+    "net_v": 47.45,
+    "net_f": 36.48
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Abril",
+    "mtm": 246.64,
+    "net_v": 430.33,
+    "net_f": 568.41
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Maio",
+    "mtm": -78.58,
+    "net_v": -55.54,
+    "net_f": 37.18
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Julho",
+    "mtm": -706.79,
+    "net_v": 237.41,
+    "net_f": -222.41
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Agosto",
+    "mtm": 231.7,
+    "net_v": -411.59,
+    "net_f": 193.72
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Setembro",
+    "mtm": 88.79,
+    "net_v": 460.63,
+    "net_f": -282.01
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Outubro",
+    "mtm": -499.5,
+    "net_v": -393.24,
+    "net_f": 210.95
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Novembro",
+    "mtm": 1077.79,
+    "net_v": 133.82,
+    "net_f": -33.31
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte A",
+    "month": "Dezembro",
+    "mtm": -816.4,
+    "net_v": 85.15,
+    "net_f": 407.87
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Fevereiro",
+    "mtm": -634.27,
+    "net_v": -107.01,
+    "net_f": -120.77
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Março",
+    "mtm": 783.79,
+    "net_v": -395.13,
+    "net_f": 280.5
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Abril",
+    "mtm": -858.12,
+    "net_v": 195.41,
+    "net_f": 76
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Maio",
+    "mtm": -898.46,
+    "net_v": -333.78,
+    "net_f": -494.7
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Junho",
+    "mtm": 68.65,
+    "net_v": -152.38,
+    "net_f": 271.25
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Julho",
+    "mtm": 917.08,
+    "net_v": -371.25,
+    "net_f": 410.69
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Agosto",
+    "mtm": -800.03,
+    "net_v": -144.01,
+    "net_f": -395.75
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Setembro",
+    "mtm": -229.21,
+    "net_v": 296.47,
+    "net_f": -13.64
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Outubro",
+    "mtm": 363.23,
+    "net_v": -40.65,
+    "net_f": -91.04
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Novembro",
+    "mtm": -893.03,
+    "net_v": 394.22,
+    "net_f": 340.44
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte B",
+    "month": "Dezembro",
+    "mtm": -1139.14,
+    "net_v": 273.18,
+    "net_f": -292.71
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte C",
+    "month": "Janeiro",
+    "mtm": -307.39,
+    "net_v": -292.77,
+    "net_f": 39.78
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte C",
+    "month": "Maio",
+    "mtm": -585.04,
+    "net_v": 307.56,
+    "net_f": -894.37
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte C",
+    "month": "Junho",
+    "mtm": -523.53,
+    "net_v": 321.79,
+    "net_f": -476.98
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte C",
+    "month": "Julho",
+    "mtm": -115.3,
+    "net_v": 485.29,
+    "net_f": 432.94
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte C",
+    "month": "Agosto",
+    "mtm": -456.91,
+    "net_v": -234.06,
+    "net_f": -412.71
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte C",
+    "month": "Outubro",
+    "mtm": 121.47,
+    "net_v": -530.68,
+    "net_f": 154.36
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte C",
+    "month": "Dezembro",
+    "mtm": 2116.53,
+    "net_v": 266.49,
+    "net_f": 867.22
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte D",
+    "month": "Janeiro",
+    "mtm": 816.76,
+    "net_v": -395.9,
+    "net_f": -77.68
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte D",
+    "month": "Fevereiro",
+    "mtm": 585.17,
+    "net_v": 210.77,
+    "net_f": 594.81
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte D",
+    "month": "Abril",
+    "mtm": 102.63,
+    "net_v": 21.96,
+    "net_f": 411.67
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte D",
+    "month": "Junho",
+    "mtm": -478.21,
+    "net_v": -1.83,
+    "net_f": -433.38
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte D",
+    "month": "Julho",
+    "mtm": -1035.52,
+    "net_v": 6.53,
+    "net_f": -429.99
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte D",
+    "month": "Outubro",
+    "mtm": 679.04,
+    "net_v": -661.75,
+    "net_f": 9.16
+  },
+  {
+    "year": 2023,
+    "product": "Contraparte D",
+    "month": "Novembro",
+    "mtm": 236.51,
+    "net_v": -202.04,
+    "net_f": 103.96
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte A",
+    "month": "Janeiro",
+    "mtm": 255.79,
+    "net_v": 419.12,
+    "net_f": 497.26
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte A",
+    "month": "Fevereiro",
+    "mtm": 385.78,
+    "net_v": -454.14,
+    "net_f": 65.51
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte A",
+    "month": "Março",
+    "mtm": -894.82,
+    "net_v": -308.01,
+    "net_f": -169.23
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte A",
+    "month": "Maio",
+    "mtm": 291.14,
+    "net_v": 114.6,
+    "net_f": -156.62
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte A",
+    "month": "Agosto",
+    "mtm": 417.03,
+    "net_v": 272.44,
+    "net_f": -5.97
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte A",
+    "month": "Outubro",
+    "mtm": -571.99,
+    "net_v": 268.87,
+    "net_f": -44.8
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte A",
+    "month": "Novembro",
+    "mtm": 395.49,
+    "net_v": 294.26,
+    "net_f": -195.16
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte A",
+    "month": "Dezembro",
+    "mtm": -586.63,
+    "net_v": -409,
+    "net_f": 254.64
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte B",
+    "month": "Fevereiro",
+    "mtm": 488.09,
+    "net_v": 419.18,
+    "net_f": -383.3
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte B",
+    "month": "Março",
+    "mtm": 913.6,
+    "net_v": -407.71,
+    "net_f": -334.48
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte B",
+    "month": "Abril",
+    "mtm": 677.87,
+    "net_v": -442.14,
+    "net_f": -294.92
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte B",
+    "month": "Maio",
+    "mtm": -232.59,
+    "net_v": 107.3,
+    "net_f": -56.59
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte B",
+    "month": "Agosto",
+    "mtm": 311.45,
+    "net_v": 197.64,
+    "net_f": 39.86
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte B",
+    "month": "Novembro",
+    "mtm": 302.97,
+    "net_v": 54.82,
+    "net_f": -6.02
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte B",
+    "month": "Dezembro",
+    "mtm": -516.29,
+    "net_v": -230.19,
+    "net_f": 334.42
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte C",
+    "month": "Fevereiro",
+    "mtm": -359.36,
+    "net_v": -359.59,
+    "net_f": -201.58
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte C",
+    "month": "Março",
+    "mtm": 697.34,
+    "net_v": -22.29,
+    "net_f": -134.64
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte C",
+    "month": "Junho",
+    "mtm": -723.29,
+    "net_v": 102.78,
+    "net_f": 48.6
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte C",
+    "month": "Agosto",
+    "mtm": 105.64,
+    "net_v": -63.66,
+    "net_f": -412.11
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte C",
+    "month": "Setembro",
+    "mtm": -944.77,
+    "net_v": -205.51,
+    "net_f": -9.25
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte C",
+    "month": "Outubro",
+    "mtm": -818.72,
+    "net_v": 538.59,
+    "net_f": -127.33
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte C",
+    "month": "Novembro",
+    "mtm": -862.72,
+    "net_v": 50.16,
+    "net_f": 388.19
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Janeiro",
+    "mtm": 511.54,
+    "net_v": 2.24,
+    "net_f": 533.7
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Fevereiro",
+    "mtm": 35.06,
+    "net_v": -67.52,
+    "net_f": 833.36
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Março",
+    "mtm": -461.55,
+    "net_v": -777.2,
+    "net_f": 577.3
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Abril",
+    "mtm": -393.47,
+    "net_v": -330.32,
+    "net_f": 236.25
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Maio",
+    "mtm": -474.41,
+    "net_v": -162.24,
+    "net_f": 184.54
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Junho",
+    "mtm": -153.06,
+    "net_v": -39.88,
+    "net_f": -76.4
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Julho",
+    "mtm": 640.85,
+    "net_v": 136.64,
+    "net_f": 214.06
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Agosto",
+    "mtm": -92.41,
+    "net_v": 373.58,
+    "net_f": -176.77
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Setembro",
+    "mtm": 314.22,
+    "net_v": -463.18,
+    "net_f": 281.51
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Outubro",
+    "mtm": 354.34,
+    "net_v": 139.36,
+    "net_f": 497.69
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Novembro",
+    "mtm": -389.46,
+    "net_v": 384.3,
+    "net_f": -106.7
+  },
+  {
+    "year": 2024,
+    "product": "Contraparte D",
+    "month": "Dezembro",
+    "mtm": 959.02,
+    "net_v": -122.15,
+    "net_f": 182.98
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte A",
+    "month": "Fevereiro",
+    "mtm": 519.58,
+    "net_v": -513.64,
+    "net_f": 287.01
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte A",
+    "month": "Maio",
+    "mtm": -254.63,
+    "net_v": -65.55,
+    "net_f": 64.46
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte A",
+    "month": "Junho",
+    "mtm": -333.12,
+    "net_v": 432.76,
+    "net_f": -860.44
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte A",
+    "month": "Julho",
+    "mtm": 87.29,
+    "net_v": -164.68,
+    "net_f": 663.06
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte A",
+    "month": "Outubro",
+    "mtm": 429.19,
+    "net_v": -423.8,
+    "net_f": 184.57
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte A",
+    "month": "Dezembro",
+    "mtm": 105.53,
+    "net_v": 91.89,
+    "net_f": -26.03
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte B",
+    "month": "Janeiro",
+    "mtm": -1263.9,
+    "net_v": 275.39,
+    "net_f": -315.12
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte B",
+    "month": "Junho",
+    "mtm": -775.61,
+    "net_v": -97.13,
+    "net_f": -897.2
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte B",
+    "month": "Julho",
+    "mtm": 987.31,
+    "net_v": -109.54,
+    "net_f": -131.08
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte B",
+    "month": "Agosto",
+    "mtm": -282.71,
+    "net_v": 244.21,
+    "net_f": -169.65
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte B",
+    "month": "Outubro",
+    "mtm": 26.6,
+    "net_v": -271.55,
+    "net_f": 211.09
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte B",
+    "month": "Novembro",
+    "mtm": 830.43,
+    "net_v": -19.63,
+    "net_f": -91.48
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte C",
+    "month": "Janeiro",
+    "mtm": -1176.75,
+    "net_v": 459.28,
+    "net_f": 137.22
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte C",
+    "month": "Fevereiro",
+    "mtm": -520.43,
+    "net_v": -123.26,
+    "net_f": 490.93
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte C",
+    "month": "Março",
+    "mtm": -1071.2,
+    "net_v": -443.4,
+    "net_f": -714.55
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte C",
+    "month": "Abril",
+    "mtm": 417.82,
+    "net_v": 28.37,
+    "net_f": 350.82
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte C",
+    "month": "Junho",
+    "mtm": 963.68,
+    "net_v": 458.7,
+    "net_f": 338.58
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte C",
+    "month": "Julho",
+    "mtm": -346.7,
+    "net_v": -111.73,
+    "net_f": 207.23
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte C",
+    "month": "Agosto",
+    "mtm": 223.03,
+    "net_v": -177.31,
+    "net_f": -448.36
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte C",
+    "month": "Setembro",
+    "mtm": -1018.3,
+    "net_v": 175.65,
+    "net_f": -101.33
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte C",
+    "month": "Novembro",
+    "mtm": 358.85,
+    "net_v": 161.25,
+    "net_f": -581.74
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Janeiro",
+    "mtm": -526.63,
+    "net_v": -266.78,
+    "net_f": 57.31
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Fevereiro",
+    "mtm": 738.37,
+    "net_v": 207.56,
+    "net_f": 490.42
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Março",
+    "mtm": 367.93,
+    "net_v": 467.97,
+    "net_f": 230.55
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Abril",
+    "mtm": 479.82,
+    "net_v": -276.15,
+    "net_f": 290.08
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Maio",
+    "mtm": -478.61,
+    "net_v": 268.92,
+    "net_f": -487.8
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Junho",
+    "mtm": 454.52,
+    "net_v": 576.46,
+    "net_f": 511
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Julho",
+    "mtm": 562.59,
+    "net_v": 486.26,
+    "net_f": 287.79
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Setembro",
+    "mtm": -734.51,
+    "net_v": -229.04,
+    "net_f": 48.92
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Outubro",
+    "mtm": -1213.37,
+    "net_v": 178.24,
+    "net_f": -42.3
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Novembro",
+    "mtm": -555.3,
+    "net_v": -409.94,
+    "net_f": -133.88
+  },
+  {
+    "year": 2025,
+    "product": "Contraparte D",
+    "month": "Dezembro",
+    "mtm": -341.7,
+    "net_v": -605.56,
+    "net_f": -562.05
+  }
+]
