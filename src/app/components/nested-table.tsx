@@ -62,7 +62,11 @@ const NestedTable: React.FC<{ data: DataItem[] }> = ({ data }) => {
 
   return (
     <TableContainer component={Paper} sx={{ maxHeight: 520, overflow: "auto" }}>
-      <Table stickyHeader>
+      <Table stickyHeader sx={{
+        borderCollapse: "collapse",
+        "& th, & td": { border: "1px solid rgba(224,224,224,1)" },
+        "& th:last-child, & td:last-child": { borderRight: "none" }
+      }}>
         <TableHead>
           <TableRow>
             <TableCell>Ano / Mês / Contraparte</TableCell>
