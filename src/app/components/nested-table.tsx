@@ -61,7 +61,7 @@ const NestedTable: React.FC<{ data: DataItem[] }> = ({ data }) => {
   const grouped = useMemo(() => groupData(sortedData), [sortedData]);
 
   return (
-    <TableContainer component={Paper} sx={{ maxHeight: 520, overflow: "auto" }}>
+    <TableContainer component={Paper} sx={{ overflow: "auto" }}>
       <Table stickyHeader sx={{
         borderCollapse: "collapse",
         "& th, & td": { border: "1px solid rgba(224,224,224,1)" },
