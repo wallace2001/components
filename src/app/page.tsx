@@ -13,6 +13,7 @@ import {
 export default function Home() {
   const components = [
     { name: "Tabela", path: "/nested-table" },
+    { name: "Widgets", path: "/widgets" },
   ];
 
   return (
