@@ -6,7 +6,7 @@ import { Typography } from "@mui/material";
 
 export default function NestedTablePage() {
   return (
-    <main style={{ padding: "20px" }}>
+    <main style={{ padding: 20 }}>
       <Typography variant="h4" gutterBottom>
         Nested Table
       </Typography>

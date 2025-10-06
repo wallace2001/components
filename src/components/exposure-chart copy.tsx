@@ -9,8 +9,9 @@ type Monthly = any;
 const SLIDER_BOTTOM = 38;
 const SLIDER_HEIGHT = 30;
 const TOOLBOX_ICON  = 18;
-const DZ_GAP = 12; // respiro entre gráfico e slider
-const TOOLBOX_BOTTOM = 27; // já definido no option
+const DZ_GAP = 12;
+const TOOLBOX_BOTTOM = 27;
+const GRID4_TOP = 642;
 const GRID4_BOTTOM =
   Math.max(SLIDER_BOTTOM + SLIDER_HEIGHT + DZ_GAP, TOOLBOX_BOTTOM + TOOLBOX_ICON + 8);
 
@@ -485,11 +486,12 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         },
       },
 
+
       grid: [
         { top: 132, left: 0, right: 0, height: 112, containLabel: true },
         { top: 292, left: 0, right: 0, height: 112, containLabel: true },
         { top: 452, left: 0, right: 0, height: 112, containLabel: true },
-        { top: 612, left: 0, right: 0, bottom: GRID4_BOTTOM, containLabel: true }, // <- sem height
+        { top: GRID4_TOP, left: 0, right: 0, bottom: GRID4_BOTTOM, containLabel: true },
       ],
 
       legend: [
@@ -539,7 +541,7 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
 
         // FPC
         { id: "legend-fpc", top: 584, left: "center", itemGap: 18,
-          data: ["FPC SE", "FPC SU", "FPC NO", "FPC NE"], textStyle: { fontSize: 12 } },
+          data: ["SE", "SU", "NO", "NE"], textStyle: { fontSize: 12 } },
 
         // ocultas
         { id: "legend-combos", show: false, data: combosLegendData,
@@ -673,24 +675,23 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     legendselectchanged: (ev: any) => {
       const chart = chartRef.current; if (!chart) return;
 
-      // ⛔ Não sincronizar nada quando a legenda clicada for a do FPC
-      if (ev?.legendId === "legend-fpc") return;
-
       const name = ev?.name as string;
       const byName = (arr: string[]) => arr.includes(name);
       const selected = (k: string) => ev?.selected?.[k];
 
+      // Helper: atualiza um ref a partir do clique (por name ou por legendId)
       const applySel = (
         keys: string[],
         ref: React.MutableRefObject<Record<string, boolean>>,
         legendId?: string
       ) => {
         if (ev?.legendId === legendId) {
+          // quando o legendId vem, usa o selected inteiro desse legend
           keys.forEach(k => {
             if (ev?.selected?.hasOwnProperty(k)) ref.current[k] = !!ev.selected[k];
           });
-        } else if (!ev?.legendId && byName(keys)) {
-          // fallback apenas quando NÃO houver legendId
+        } else if (byName(keys)) {
+          // fallback: clicou em um item cujo nome bate nessa lista
           ref.current[name] = selected(name) ?? !ref.current[name];
         }
       };
