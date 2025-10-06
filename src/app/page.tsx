@@ -14,6 +14,7 @@ export default function Home() {
   const components = [
     { name: "Tabela", path: "/nested-table" },
     { name: "Widgets", path: "/widgets" },
+    { name: "Exposure", path: "/exposure-chart" },
   ];
 
   return (

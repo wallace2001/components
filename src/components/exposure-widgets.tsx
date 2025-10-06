@@ -3,6 +3,18 @@ import React from "react";
 import ReactECharts from "echarts-for-react";
 import { Card, CardContent, Typography, Stack, Box } from "@mui/material";
 import RiskSummaryCard from "./risk-summary-card";
+import RiskArcAndBalanceCard from "./risk-summary-card";
+import millify from "millify";
+
+const fmtMWh = (v: number) => {
+  const raw = millify(Math.max(v || 0, 0), {
+    precision: 2,
+    units: ["MWh", "GWh"],
+    space: true,
+  });
+
+  return raw.replace(".", ",");
+};
 
 type Slice = { name: string; value: number; color: string };
 
@@ -13,27 +25,41 @@ const COLORS = {
   red:    "#EF5350",
 };
 
-function DonutCard({ title, data }: { title: string; data: Slice[] }) {
+function DonutCard({
+  title,
+  data,
+}: { title: string; data: Slice[] }) {
   const option = {
-    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    tooltip: {
+      trigger: "item",
+      formatter: (params: any) =>
+        `${params.name}<br/>${fmtMWh(params.value)} (${params.percent}%)`,
+    },
+    legend: {
+      orient: "vertical",
+      left: "55%",
+      top: "center",
+      itemWidth: 18,
+      itemHeight: 12,
+      textStyle: {
+        fontSize: 12,
+      },
+    },
     series: [
       {
+        name: "",
         type: "pie",
-        radius: ["48%", "86%"],
-        startAngle: 90,
-        avoidLabelOverlap: true,
-        label: { show: false },
-        labelLine: { show: false },
-        emphasis: { scale: false },
-        itemStyle: {
-          borderColor: "#fff",
-          borderWidth: 10,
-          borderJoin: "round",
-          borderRadius: 14,
+        radius: ["35%", "60%"],   // 👈 aumenta os raios → menos espaço sobrando
+        center: ["15%", "50%"],   // 👈 centraliza melhor (ajuste fino)
+        padAngle: 1,
+        itemStyle: { borderRadius: 5 },
+        label: {
+          show: false,
         },
+        z: 10,
         data: data.map((s) => ({
-          value: s.value,
           name: s.name,
+          value: s.value,
           itemStyle: { color: s.color },
         })),
       },
@@ -42,32 +68,58 @@ function DonutCard({ title, data }: { title: string; data: Slice[] }) {
 
   return (
     <Card variant="outlined" sx={{ borderRadius: 3 }}>
-      <CardContent sx={{ pb: 2 }}>
+      <CardContent sx={{ p: 1.5 }}>
         <Typography variant="subtitle1" fontWeight={700} gutterBottom>
           {title}
         </Typography>
 
-        <Stack alignItems="center" spacing={1.5}>
-          <Box sx={{ width: 240, height: 210 }}>
-            <ReactECharts
-              option={option}
-              style={{ width: "100%", height: "100%" }}
-              notMerge
-            />
-          </Box>
-
-          <Stack spacing={1} sx={{ width: "100%", maxWidth: 280 }}>
-            {data.map((s) => (
-              <Stack key={s.name} direction="row" alignItems="center" spacing={1.2}>
-                <Box sx={{ width: 32, height: 14, borderRadius: 1, bgcolor: s.color,  }} />
-                <Typography variant="body2">{s.name}</Typography>
-              </Stack>
-            ))}
-          </Stack>
-        </Stack>
+    <Box sx={{ width: 400, height: 140, mx: "auto" }}>
+      <ReactECharts
+        option={option}
+        style={{ width: "100%", height: "100%" }}
+        notMerge
+      />
+      </Box>
       </CardContent>
     </Card>
   );
+}
+
+const counterpartInfo = {
+    "agent_name": "ITAU",
+    "agent_cnpj": "31781135000165",
+    "agent_category": "Comercializadora",
+    "group_name": null,
+    "controller_cnpj": null,
+    "risk_analysis": {
+        "analysis_date": "03/04/2023",
+        "score_percent": 0.9371944654708173,
+        "rating": "A / Risco Mínimo",
+        "reason_zero_limit": null,
+        "contract_duration": "Sem limita�ão",
+        "balance": {
+            "2024": {
+                "lim_crdt_conced": 394462526.77751696,
+                "lim_crdt_consum": 82742067.40967612,
+                "lim_crdt_saldo": 342986905.0913195
+            },
+            "2025": {
+                "lim_crdt_conced": 255830707.22896922,
+                "lim_crdt_consum": 63767086.13940565,
+                "lim_crdt_saldo": 502881278.1261343
+            },
+            "2026": {
+                "lim_crdt_conced": 289530187.4490186,
+                "lim_crdt_consum": 0,
+                "lim_crdt_saldo": 507137718.83452207
+            },
+            "2027": {
+                "lim_crdt_conced": 405605626.6696797,
+                "lim_crdt_consum": 0,
+                "lim_crdt_saldo": 308014114.7743563
+            }
+        }
+    }
 }
 
 export default function ExposureWidgets() {
@@ -89,7 +141,7 @@ export default function ExposureWidgets() {
     <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
       <DonutCard title="Exposição por Categoria" data={categoria} />
       <DonutCard title="Exposição por Subsidiária" data={subsidiaria} />
-      <RiskSummaryCard />
+      {/* <RiskArcAndBalanceCard data={counterpartInfo}/> */}
     </Stack>
   );
 }

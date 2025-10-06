@@ -1,162 +1,235 @@
-// RiskSummaryCard.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import ReactECharts from "echarts-for-react";
 import { Card, CardContent, Stack, Typography, Box } from "@mui/material";
 
-type YearRow = { year: string; green: number; total: number };
-
-const palette = {
-  gauge: "#154b5b",
-  barBlue: "#355acb",
-  barGreen: "#7bc67b",
-  axis: "#9e9e9e",
-  split: "#e5e9f2",
+type BalanceYear = {
+  lim_crdt_conced: number;
+  lim_crdt_consum: number;
+  lim_crdt_saldo: number;
+};
+type RiskAnalysis = {
+  analysis_date: string;
+  score_percent: number; // 0..1 (pode vir >1; tratamos)
+  rating: string;        // "A / Risco Mínimo"
+  reason_zero_limit: string | null;
+  contract_duration: string;
+  balance: Record<string, BalanceYear>; // "2024" -> valores
+};
+export type AgentRiskPayload = {
+  agent_name: string;
+  agent_cnpj: string;
+  agent_category: string;
+  group_name: string | null;
+  controller_cnpj: string | null;
+  risk_analysis: RiskAnalysis;
 };
 
-const dataRows: YearRow[] = [
-  { year: "2024", green: 28_000_000, total: 400_000_000 },
-  { year: "2025", green: 22_000_000, total: 400_000_000 },
-  { year: "2026", green: 60_000_000, total: 400_000_000 },
-  { year: "2027", green: 24_000_000, total: 400_000_000 },
-  { year: "2028", green: 14_000_000, total: 400_000_000 },
-];
+const fmtUS = (v: number) => v.toLocaleString("en-US");
 
-const numberFmt = (v: number) => v.toLocaleString("en-US");
+export default function RiskArcAndBalanceCard({
+  data,
+  // tamanhos menores (cabe em cards compactos)
+  gaugeWidth = 220,
+  gaugeHeight = 140,
+  gaugeCenterY = '82%',
+}: {
+  data: AgentRiskPayload;
+  gaugeWidth?: number;
+  gaugeHeight?: number;
+  gaugeCenterY?: string;
+}) {
+  const { rating, score_percent, balance } = data.risk_analysis;
 
-export default function RiskSummaryCard() {
-    const gaugeOption = {
-    series: [
-        {
-        type: "gauge",
-        // arco amplo (quase 240°), aberto embaixo
-        startAngle: 210,
-        endAngle: -30,
+const [letter, riskLabel] = data.risk_analysis["rating"]
+  .split("/")
+  .map((s: string) => s.trim());
 
-        // desce o centro e aumenta o raio para “achatar” o topo visível
-        center: ["50%", "86%"],
-        radius: "170%",
+const percentText = `${(Number(data.risk_analysis["score_percent"]) * 100).toFixed(2)}`;
 
-        min: 0,
-        max: 100,
-        pointer: { show: false },
-        axisTick: { show: false },
-        splitLine: { show: false },
-        axisLabel: { show: false },
+  const raw = Number(score_percent || 0);
+  const frac = Math.max(0, Math.min(raw, 1));                  // 0..1 para color-stop
+  const valuePct = Math.round(raw * 100);
+  const cappedValue = Math.min(Math.max(valuePct, 0), 100);    // 0..100 p/ ponteiro/valor
 
-        // 🔧 pontas retas (sem roundCap)
-        progress: {
-            show: true,
-            width: 30,
-            roundCap: false,
-            itemStyle: { color: palette.gauge },
+  const PAD = 6;
+  const RADIUS_PX = Math.floor(Math.min(gaugeWidth / 2 - PAD, gaugeHeight - PAD));
+
+  console.log(percentText);
+
+  const gaugeOption = {
+    title: [
+                 {
+                     text: letter,
+                     left: "center",
+                     top: "30%",
+                     textStyle: {
+                         fontSize: 38,
+                         fontWeight: "bold",
+                     },
+                 },
+                 {
+                     text: riskLabel,
+                     left: "center",
+                     top: "70%",
+                     textStyle: {
+                         fontSize: 16,
+                         fontWeight: "normal",
+                     },
+                 },
+             ],
+    series: [{
+      type: "gauge",
+      radius: RADIUS_PX,
+      center: ["50%", gaugeCenterY],
+      startAngle: 180,
+      endAngle: 0,
+      min: 0,
+      max: 100,
+      splitNumber: 1,
+      axisLine: {
+        lineStyle: {
+          width: "24",
+          color: [
+            [data.risk_analysis["score_percent"], "#1f4e6b"],
+            [1, "#e76f51"],
+          ],
         },
-        axisLine: {
-            roundCap: false,
-            lineStyle: { width: 30, color: [[1, "#e8eef5"]] },
-        },
-
-        detail: { show: false },
-        data: [{ value: 100 }],
-        },
-    ],
-    graphic: [
-        // Nota/letra
-        {
-        type: "text",
-        left: "center",
-        top: "30%",
-        style: { text: "A", fontSize: 58, fontWeight: 700, fill: "#3a3a3a" },
-        },
-        // 100% + Risco Mínimo (numa única graphic pra centralizar perfeitamente)
-        {
-        type: "text",
-        left: "center",
-        top: "60%",
-        style: {
-            text: "{b|100%}\nRisco Mínimo",
-            fontSize: 15,
-            lineHeight: 20,
-            textAlign: "center",
-            fill: "#3a3a3a",
-            rich: { b: { fontSize: 18, fontWeight: 700, fill: "#3a3a3a" } },
-        },
-        },
-    ],
-    };
-
-  const yCats = dataRows.map((r) => r.year);
-  const greenData = dataRows.map((r) => r.green);
-  const blueData = dataRows.map((r) => r.total - r.green);
-
-  const barsOption = {
-    grid: { left: 52, right: 18, top: 18, bottom: 36 },
-    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-    xAxis: {
-      type: "value",
-      max: 400_000_000,
-      splitNumber: 4,
-      axisLabel: { formatter: (v: number) => numberFmt(v) },
-      axisLine: { lineStyle: { color: palette.axis } },
-      splitLine: { lineStyle: { color: palette.split } },
-    },
-    yAxis: {
-      type: "category",
-      data: yCats,
-      inverse: true,
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { color: "#2b2b2b" },
-    },
-    series: [
-      {
-        name: "Parcela inicial",
-        type: "bar",
-        stack: "t",
-        data: greenData,
-        barWidth: 18,
-        itemStyle: { color: palette.barGreen, borderRadius: [2, 0, 0, 2] },
       },
-      {
-        name: "Exposição",
-        type: "bar",
-        stack: "t",
-        data: blueData,
-        barWidth: 18,
-        itemStyle: { color: palette.barBlue, borderRadius: [0, 2, 2, 0] },
+      pointer: { show: false },
+      axisTick: { show: true },
+      splitLine: { show: false },
+      axisLabel: { show: false },
+      detail: {
+        formatter: "{value}%",
+        fontSize: 14,
+        offsetCenter: [0, -22],
       },
-    ],
+      data: [{ value: percentText }],
+    },
+  ],
   };
 
+  // ---------- Barras por ano (parte de baixo) ----------
+  const { years, greenData, blueData, xMax } = useMemo(() => {
+    const ys = Object.keys(balance || {}).sort(); // "2024", "2025", ...
+    const green = ys.map(y => Math.max(balance[y].lim_crdt_consum, 0));
+    const remaining = ys.map(y => {
+      const rest = (balance[y].lim_crdt_conced || 0) - (balance[y].lim_crdt_consum || 0);
+      return Math.max(rest, 0);
+    });
+    const totals = ys.map((_, i) => green[i] + remaining[i]);
+    const max = totals.length ? Math.max(...totals) : 1;
+
+    // arredonda o eixo p/ cima (de 50M em 50M)
+    const step = 50_000_000;
+    const niceMax = Math.ceil(max / step) * step;
+
+    return { years: ys, greenData: green, blueData: remaining, xMax: niceMax };
+  }, [balance]);
+
+// Garante que sempre temos arrays
+const yearsSafe = Array.isArray(years) ? years : [];
+const greenSafe = Array.isArray(greenData) ? greenData : [];
+const blueSafe  = Array.isArray(blueData) ? blueData : [];
+
+// Total concedido = consumido + saldo
+const granted = yearsSafe.map((_, i) => (greenSafe[i] ?? 0) + (blueSafe[i] ?? 0));
+const consumed = yearsSafe.map((_, i) => greenSafe[i] ?? 0);
+const balanced  = yearsSafe.map((_, i) => blueSafe[i] ?? 0);
+
+const barsOption = {
+  tooltip: {
+    trigger: "axis",
+    show: true,
+    confine: true,
+    textStyle: {
+      overflow: "breakAll",
+      width: 20,
+    },
+    formatter: (params: any[]) => {
+      const name = params?.[0]?.axisValue ?? "";
+      const gVal = params.find(p => p.seriesName === "Granted")?.value ?? 0;
+      const cVal = params.find(p => p.seriesName === "Consumed")?.value ?? 0;
+      const bVal = params.find(p => p.seriesName === "Balance")?.value ?? 0;
+      return [
+        `<b>${name}</b>`,
+        `Granted: ${fmtUS(gVal)}`,
+        `Consumed: ${fmtUS(cVal)}`,
+        `Balance: ${fmtUS(bVal)}`,
+      ].join("<br/>"); // ✅ fecha certo
+    },
+  },
+  grid: {
+    top: "0%",
+    left: "0%",
+    right: "5%",
+    height: "100%",
+    containLabel: true,
+  },
+  xAxis: {
+    type: "value",
+    ...(xMax ? { max: xMax } : {}),
+  },
+  yAxis: {
+    type: "category",
+    data: yearsSafe,
+    splitNumber: 1,
+    inverse: true,
+  },
+  series: [
+    {
+      name: "Granted",
+      type: "bar",
+      data: granted,        // array garantido
+      barWidth: 16,
+      itemStyle: { color: "#355acb" },
+    },
+    {
+      name: "Consumed",
+      type: "bar",
+      data: consumed,       // array garantido
+      barGap: "-100%",
+      z: 2,
+      barWidth: 16,
+      itemStyle: { color: "#7bc67b" },
+    },
+    {
+      name: "Balance",
+      type: "bar",
+      data: balanced,        // array garantido
+      barGap: "-100%",
+      z: -1,
+      barWidth: 16,
+      itemStyle: { color: "rgba(0, 0, 0, 0)" },
+    },
+  ],
+};
+
   return (
-    <Card variant="outlined" sx={{ borderRadius: 3, width: 500 }}>
+    <Card variant="outlined" sx={{ borderRadius: 3, width: "100%" }}>
       <CardContent>
-        <Stack spacing={2}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={3}>
-            <Stack spacing={4}>
-              <Box>
-                <Typography variant="subtitle2" fontWeight={700}>
-                  CNPJ:
-                </Typography>
-                <Typography variant="subtitle1">09149503000106</Typography>
-              </Box>
-              <Box>
-                <Typography variant="subtitle2" fontWeight={700}>
-                  Categoria:
-                </Typography>
-                <Typography variant="subtitle1">Comercializadora</Typography>
-              </Box>
-            </Stack>
-
-            <Box sx={{ width: 320, height: 180 }}>
-            <ReactECharts option={gaugeOption} style={{ width: "100%", height: "100%" }} notMerge />
+        {/* topo: gauge menor */}
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={3}>
+          <Stack spacing={1.5}>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700}>CNPJ:</Typography>
+              <Typography variant="subtitle1">{data.agent_cnpj}</Typography>
             </Box>
-
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700}>Categoria:</Typography>
+              <Typography variant="subtitle1">{data.agent_category}</Typography>
+            </Box>
           </Stack>
 
-          <Box sx={{ width: "100%", height: 200 }}>
-            <ReactECharts option={barsOption} style={{ width: "100%", height: "100%" }} notMerge />
+          <Box sx={{ width: gaugeWidth, height: gaugeHeight }}>
+            <ReactECharts option={gaugeOption} style={{ width: "100%", height: "100%" }} notMerge />
           </Box>
         </Stack>
+
+        {/* parte de baixo: barras por ano */}
+        <Box sx={{ width: "100%", height: 170, mt: 1.5 }}>
+          <ReactECharts option={barsOption} style={{ width: "100%", height: "100%" }} notMerge />
+        </Box>
       </CardContent>
     </Card>
   );

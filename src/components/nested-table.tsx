@@ -71,7 +71,7 @@ const NestedTable: React.FC<{ data: DataItem[] }> = ({ data }) => {
   const grouped = useMemo(() => groupData(sortedData), [sortedData]);
 
   return (
-    <TableContainer component={Paper} sx={{ overflow: "auto" }}>
+    <TableContainer component={Paper} sx={{ overflow: "auto", border: 'none' }}>
       {/* Barra de ações (engrenagem) */}
       <Box display="flex" justifyContent="flex-end" p={1}>
         <IconButton onClick={openMenu}><SettingsIcon /></IconButton>
