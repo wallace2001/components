@@ -9,15 +9,13 @@ type Monthly = any;
 const SLIDER_BOTTOM = 38;
 const SLIDER_HEIGHT = 30;
 const TOOLBOX_ICON  = 18;
-const DZ_GAP = 12; // respiro entre gráfico e slider
-const TOOLBOX_BOTTOM = 27; // já definido no option
+const DZ_GAP = 12;
+const TOOLBOX_BOTTOM = 27;
 const GRID4_BOTTOM =
   Math.max(SLIDER_BOTTOM + SLIDER_HEIGHT + DZ_GAP, TOOLBOX_BOTTOM + TOOLBOX_ICON + 8);
 
 const SUBS: Sub[] = ["SE", "SU", "NO", "NE"];
 
-// Se quiser travar só em CON/I5, deixe como ["CON","I5"].
-// Se quiser liberar para todos os tipos detectados, mude para null.
 const TIPO_ALLOWED: string[] | null = null;
 
 // ---------- utils ----------
@@ -51,7 +49,6 @@ const fmtBRLShort = (v: number) => {
 const fmtPrice = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtVol   = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} MWm`;
 
-// paleta base por sub
 const COLORS = {
   total: "#1f4e6b",
   SE: "#60a5fa",
@@ -64,7 +61,6 @@ const COLORS = {
   fpcNE: "#FF6666",
 };
 
-// variação de cor por tipo (clareia um pouco conforme o índice do tipo)
 function tint(base: string, idx: number) {
   const n = base.replace("#", "");
   const num = parseInt(n, 16);
@@ -142,6 +138,12 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
   const revCusto       = arr(len, 0);
   const revNet         = arr(len, 0);
 
+  // NOVOS para Volume:
+  const volSellTOTAL = arr(len, 0); // volume de venda (MWm)
+  const volBuyTOTAL  = arr(len, 0); // volume de compra (MWm)
+  const volNetTOTAL  = arr(len, 0); // sell - buy (MWm)
+
+
   const revByTipo2:   Record<string, number[]> = Object.fromEntries(tipos2.map(t => [t, arr(len, 0)])) as any;
   const mtmByTipo2:   Record<string, number[]> = Object.fromEntries(tipos2.map(t => [t, arr(len, 0)])) as any;
   const volByTipo2:   Record<string, number[]> = Object.fromEntries(tipos2.map(t => [t, arr(len, 0)])) as any;
@@ -170,10 +172,17 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     revenueTOTAL[i] += revenue;
     mtmTOTAL[i]     += mtm;
     volumeTOTAL[i]  += (sell + buy);
+
+    volSellTOTAL[i] += sell;
+    volBuyTOTAL[i]  += buy;
   }
 
+  for (let i = 0; i < len; i++) {
+    revNet[i]     = revFaturamento[i] - revCusto[i];
+    volNetTOTAL[i] = volSellTOTAL[i] - volBuyTOTAL[i]; // NOVO
+  }
 
-  // -------- Price FWD (mantido como estava) --------
+  // -------- Price FWD --------
   const priceBySub: Record<Sub, (number | null)[]> = {
     SE: arr(len, null), SU: arr(len, null), NO: arr(len, null), NE: arr(len, null),
   };
@@ -185,7 +194,7 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     }
   });
 
-  // --------- Tipos (tp_tipo_energia) ----------  (dinâmico + whitelist opcional)
+  // --------- Tipos (tp_tipo_energia) ----------
   const tipos: string[] = useMemo(() => {
     const s = new Set<string>();
     for (const d of detailsRaw) {
@@ -196,10 +205,9 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     return TIPO_ALLOWED ? all.filter(t => TIPO_ALLOWED.includes(t)) : all;
   }, [detailsRaw]);
 
-  // intenção de ativar: começa tudo desligado
   tipos.forEach(t => { if (selectedTipoRef.current[t] == null) selectedTipoRef.current[t] = false; });
 
-  // --------- Combinações Sub × Tipo ---------- (para empilhar por sub com filtros por tipo)
+  // --------- Combinações Sub × Tipo ----------
   type ComboKey = `${Sub}|${string}`;
   const combos: ComboKey[] = useMemo(
     () => SUBS.flatMap((sub) => tipos.map((tp) => `${sub}|${tp}` as ComboKey)),
@@ -210,12 +218,10 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
   const mtmByCombo: Record<ComboKey, number[]> = Object.fromEntries(combos.map(k => [k, arr(len, 0)])) as any;
   const volByCombo: Record<ComboKey, number[]> = Object.fromEntries(combos.map(k => [k, arr(len, 0)])) as any;
 
-  // --- agregados por TIPO (para quando apenas tipos estiverem selecionados)
   const revByTipo: Record<string, number[]> = Object.fromEntries(tipos.map(t => [t, arr(len, 0)])) as any;
   const mtmByTipo: Record<string, number[]> = Object.fromEntries(tipos.map(t => [t, arr(len, 0)])) as any;
   const volByTipo: Record<string, number[]> = Object.fromEntries(tipos.map(t => [t, arr(len, 0)])) as any;
 
-  // preenche (aproveitando o mesmo loop dos details)
   for (const d of detailsRaw) {
     const tipo = (get<string>(d, "tp_tipo_energia", "tipo", "energy_type") || "").toUpperCase().trim();
     if (!tipos.includes(tipo)) continue;
@@ -249,12 +255,10 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     );
     if (i == null) continue;
 
-    // chaves
     const tipoEnergia = (get<string>(d, "tp_tipo_energia", "tipo", "energy_type") || "").toUpperCase().trim();
     const tipo2       = (get<string>(d, "tp_tipo", "tipo") || "").toUpperCase().trim();
     const subtipo     = (get<string>(d, "tp_subtipo", "subtipo", "sub_type") || "").toUpperCase().trim();
 
-    // valores
     const r  = toNum(get<number>(d, "revenue", "total_revenue", "rev"));
     const m  = toNum(get<number>(d, "mtm", "mtm_value", "marktomarket"));
     const s  = toNum(get<number>(d, "volume_sell_mwm", "volume_sell", "vol_sell", "sell_mwm"));
@@ -262,44 +266,45 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     const vb = s + b;
     const c  = toNum(get<number>(d, "cost"));
 
-    // --- Faturamento / Custo ---
     if (r >= 0) revFaturamento[i] += r; else revCusto[i] += Math.abs(r);
     if (c < 0)  revCusto[i]       += Math.abs(c);
     if (c > 0)  revFaturamento[i] += c;
 
-    // --- Tipo (tp_tipo) only ---
     if (tipo2 && revByTipo2[tipo2]) {
       revByTipo2[tipo2][i] += r;
       mtmByTipo2[tipo2][i] += m;
       volByTipo2[tipo2][i] += vb;
     }
 
-    // --- Subtipo (tp_subtipo) only ---
     if (subtipo && revBySubtipo[subtipo]) {
       revBySubtipo[subtipo][i] += r;
       mtmBySubtipo[subtipo][i] += m;
       volBySubtipo[subtipo][i] += vb;
     }
 
-    // --- Tipo de ENERGIA (tp_tipo_energia) only ---
     if (tipoEnergia && revByTipo[tipoEnergia]) {
       revByTipo[tipoEnergia][i] += r;
       mtmByTipo[tipoEnergia][i] += m;
       volByTipo[tipoEnergia][i] += vb;
 
-      // --- COMBO Sub × TipoEnergia ---
-      // --- SUB only (agregado em todos os tipos)
       const subRaw = get<string>(d, "tp_submercado","submercado","sub_mercado","submarket","sub");
       const sub = normSub(subRaw);
       if (sub) {
         revBySub[sub][i] += r;
         mtmBySub[sub][i] += m;
         volBySub[sub][i] += vb;
+
+        // ⬇️ NOVO: alimentar as séries "Sub × Tipo"
+        const key = `${sub}|${tipoEnergia}` as `${Sub}|${string}`;
+        if (revByCombo[key]) {
+          revByCombo[key][i] += r;
+          mtmByCombo[key][i] += m;
+          volByCombo[key][i] += vb; // usa sell+buy, como nas outras agregações
+        }
       }
     }
   }
 
-  // Net no fim
   for (let i = 0; i < len; i++) revNet[i] = revFaturamento[i] - revCusto[i];
 
 
@@ -329,7 +334,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
                itemStyle:{ color } };
     });
 
-    // ---- Séries "Tipo (tp_tipo) only" ----
     const seriesRevTipo2Only = tipos2.map((t, i) => ({
       name: `Rev · Tipo ${t}`, type: "bar", xAxisIndex: 0, yAxisIndex: 0,
       stack: "rev-tipo2", barCategoryGap: "50%", barGap: "-100%",
@@ -346,7 +350,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       data: S(volByTipo2[t]), itemStyle: { color: tint(COLORS.total, i + 1) }
     }));
 
-    // ---- Séries "Subtipo (tp_subtipo) only" ----
     const seriesRevSubtipoOnly = subtipos.map((t, i) => ({
       name: `Rev · Subtipo ${t}`, type: "bar", xAxisIndex: 0, yAxisIndex: 0,
       stack: "rev-subtipo", barCategoryGap: "50%", barGap: "-100%",
@@ -363,7 +366,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       data: S(volBySubtipo[t]), itemStyle: { color: tint(COLORS.total, i + 2) }
     }));
 
-    // ---- Séries "Sub (tp_submercado) only" ----
     const seriesRevSubOnly = (["SE","SU","NO","NE"] as Sub[]).map((s) => ({
       name: `Rev · Sub ${s}`,
       type: "bar", xAxisIndex: 0, yAxisIndex: 0,
@@ -383,15 +385,14 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       data: S(volBySub[s]), itemStyle: { color: COLORS[s] as string },
     }));
 
-    // --- GHOST SERIES (somente para botões de legenda) ---
     const ghostTipo2Series = tipos2.map((t, i) => ({
       name: t,
       type: "line",
       xAxisIndex: 0, yAxisIndex: 0,
       data: arr(len, null),
       silent: true, showSymbol: false, hoverAnimation: false,
-      lineStyle: { width: 0, opacity: 0 },          // invisível no gráfico
-      itemStyle: { color: tint(COLORS.total, i + 1) }, // ícone da legenda colorido
+      lineStyle: { width: 0, opacity: 0 },
+      itemStyle: { color: tint(COLORS.total, i + 1) },
       tooltip: { show: false },
     }));
 
@@ -413,7 +414,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       data: arr(len, null),
       silent: true, showSymbol: false, hoverAnimation: false,
       lineStyle: { width: 0, opacity: 0 },
-      // cor do quadradinho = cor do submercado
       itemStyle: { color: COLORS[s] as string },
       tooltip: { show: false },
     }));
@@ -429,7 +429,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       tooltip: { show: false },
     }));
 
-    // NOVAS: Séries "apenas Tipo" (agregadas em todos os subs)
     const seriesRevTipoOnly = tipos.map((t, i) => ({
       name: `Rev · ${t}`, type: "bar", xAxisIndex: 0, yAxisIndex: 0,
       stack: "rev-tipo", barCategoryGap: "50%", barGap: "-100%",
@@ -472,54 +471,151 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "cross" },
+        extraCssText:
+          "max-width: 520px; max-height: 520px; overflow:auto; padding:8px 10px; box-shadow:0 6px 24px rgba(0,0,0,.12);",
+
         formatter: (params: any[]) => {
-          const x = params?.[0]?.axisValueLabel ?? "";
-          const out: string[] = [`<div style="margin-bottom:4px;"><b>${x}</b></div>`];
-          params.forEach((p) => {
-            const v = p.data; if (v == null) return;
-            // corrige mapeamento: 2 = Volume, 3 = Price
-            const label = p.axisIndex === 2 ? fmtVol(+v) : p.axisIndex === 3 ? fmtPrice(+v) : fmtBRLFull(+v);
-            out.push(`<span style="display:inline-block;width:10px;height:10px;background:${p.color};border-radius:50%;margin-right:6px;"></span>${p.seriesName}: ${label}`);
+          if (!params?.length) return "";
+
+          const header = `<div style="margin-bottom:6px;font-weight:700">${params[0].axisValueLabel ?? ""}</div>`;
+
+          const fmt = (p: any) =>
+            p.axisIndex === 2 ? fmtVol(+p.data)
+            : p.axisIndex === 3 ? fmtPrice(+p.data)
+            : fmtBRLFull(+p.data);
+
+          const dot = (c: string) =>
+            `<span style="display:inline-block;width:10px;height:10px;background:${Array.isArray(c)?c[0]:c};border-radius:50%;margin-right:6px;"></span>`;
+
+          const row = (p: any, name?: string) => {
+            const isZero = +p.data === 0;
+            if (isZero) return "";
+            return `<div style="display:flex;justify-content:space-between;gap:12px;line-height:1.2;margin:2px 0;${isZero ? "opacity:.55" : ""}">
+              <div>${dot(p.color)}${name ?? p.seriesName}</div>
+              <div style="text-align:right;min-width:92px">${fmt(p)}</div>
+            </div>`;
+          };
+
+          const gTitle = (txt: string) =>
+            `<div style="margin:8px 0 4px;font-weight:600;opacity:.85">${txt}</div>`;
+
+          type Buckets = { agg:any[]; sub:any[]; tipoEnergia:any[]; tipo2:any[]; subtipo:any[]; combo:any[]; fpc:any[] };
+          const mkBuckets = (): Buckets => ({ agg:[], sub:[], tipoEnergia:[], tipo2:[], subtipo:[], combo:[], fpc:[] });
+          const panels: Record<number, Buckets> = { 0: mkBuckets(), 1: mkBuckets(), 2: mkBuckets(), 3: mkBuckets() };
+
+          // classifica cada série
+          params.forEach((p: any) => {
+            if (p?.data == null) return;
+            const ai = p.axisIndex;
+            const s  = String(p.seriesName ?? "");
+
+            if (ai === 3 && /^FPC /.test(s)) { panels[3].fpc.push(p); return; }
+            if (/^(Total|Faturamento|Custo|Net)$/.test(s)) { panels[ai].agg.push(p); return; }
+            if (/· Sub /.test(s))                           { panels[ai].sub.push(p); return; }
+            if (/^((Rev|MtM|Vol) · )/.test(s)) {
+              if (/· Subtipo /.test(s)) panels[ai].subtipo.push(p);
+              else if (/· Tipo /.test(s)) panels[ai].tipo2.push(p);
+              else panels[ai].tipoEnergia.push(p);
+              return;
+            }
+            if (/^(Rev|MtM|Vol) (SE|SU|NO|NE)·/.test(s))    { panels[ai].combo.push(p); return; }
           });
-          return out.join("<br/>");
-        },
+
+          // helper para montar "Sub × Tipo" agrupado por SUB
+          const buildComboBySub = (combo: any[]) => {
+            if (!combo.length) return "";
+            const groups: Record<Sub, Array<{ p:any; tipo:string }>> =
+              { SE:[], SU:[], NO:[], NE:[] };
+
+            combo.forEach((p) => {
+              const m = String(p.seriesName).match(/^(Rev|MtM|Vol) (SE|SU|NO|NE)·(.+)$/);
+              if (!m) return;
+              const sub = m[2] as Sub;
+              const tipo = m[3];
+              groups[sub].push({ p, tipo });
+            });
+
+            const parts: string[] = [gTitle("Sub × Tipo")];
+            SUBS.forEach((sub) => {
+              const arr = groups[sub];
+              if (!arr || !arr.length) return;
+              arr.sort((a,b) => a.tipo.localeCompare(b.tipo));
+              parts.push(`<div style="font-weight:600;opacity:.8;margin-top:4px">${sub}</div>`);
+              arr.forEach(({p, tipo}) => parts.push(row(p, tipo))); // mostra só o tipo ("CON", "I5", ...)
+            });
+            return parts.join("");
+          };
+
+          const buildPanel = (b: Buckets) => {
+            const parts: string[] = [];
+            if (b.agg.length)         parts.push(gTitle("Agregados"), ...b.agg.map((p)=>row(p)));
+            // mantém outras seções caso ativas:
+            // if (b.sub.length)      parts.push(gTitle("Por Submercado"), ...b.sub.map((p)=>row(p)));
+            // if (b.tipoEnergia.length) parts.push(gTitle("Por Tipo de Energia"), ...b.tipoEnergia.map((p)=>row(p)));
+            // if (b.tipo2.length)    parts.push(gTitle("Por Tipo"), ...b.tipo2.map((p)=>row(p)));
+            // if (b.subtipo.length)  parts.push(gTitle("Por Subtipo"), ...b.subtipo.map((p)=>row(p)));
+            // substitui lista simples de combos por agrupado:
+            parts.push(buildComboBySub(b.combo));
+            return parts.length
+              ? `<div style="margin-top:6px">${parts.join("")}</div>`
+              : "";
+          };
+
+          const out = [
+            header,
+            buildPanel(panels[0]),
+            buildPanel(panels[1]),
+            buildPanel(panels[2]),
+            (panels[3].fpc.length
+              ? `<div style="margin-top:6px"><div style="font-weight:700;margin-bottom:2px">Fwd Price</div>${
+                  panels[3].fpc.map((p:any)=>row(p, p.seriesName.replace(/^FPC /,""))).join("")
+                }</div>`
+              : "")
+          ].join("");
+
+          return out;
+        }
+
       },
 
       grid: [
         { top: 132, left: 0, right: 0, height: 112, containLabel: true },
         { top: 292, left: 0, right: 0, height: 112, containLabel: true },
         { top: 452, left: 0, right: 0, height: 112, containLabel: true },
-        { top: 612, left: 0, right: 0, bottom: GRID4_BOTTOM, containLabel: true }, // <- sem height
+        { top: 632, left: 5, right: 0, bottom: GRID4_BOTTOM, containLabel: true }
       ],
 
       legend: [
-        // (1) Agregados
-        { top: 8, left: "center", orient: "horizontal",
-          itemGap: 14, itemWidth: 22, itemHeight: 12, icon: "roundRect",
-          data: ["Total","Faturamento","Custo","Net"],
-          selected: { Total:true, Faturamento:true, Custo:true, Net:true },
-          textStyle: { fontSize: 12 } },
-
-        // (2) Tipo de ENERGIA (tp_tipo_energia)
-        { id: "legend-tipo", top: 32, left: "center", orient: "horizontal",
+        // (1) Tipo de ENERGIA (tp_tipo_energia) — subiu pra top: 8
+        { id: "legend-tipo", top: 8, left: "center", orient: "horizontal",
           itemGap: 12, itemWidth: 22, itemHeight: 12, icon: "roundRect",
           data: tipos, selected: Object.fromEntries(tipos.map(t => [t, false])),
           textStyle: { fontSize: 12 } },
 
-        // (3) SUBMERCADOS
-        { id: "legend-sub", top: 56, left: "center", orient: "horizontal",
+        // (2) SUBMERCADOS — subiu pra top: 32
+        { id: "legend-sub", top: 32, left: "center", orient: "horizontal",
           itemGap: 12, itemWidth: 22, itemHeight: 12, icon: "roundRect",
           data: SUBS, selected: { SE:false, SU:false, NO:false, NE:false },
           textStyle: { fontSize: 12 } },
 
-        // (4) TIPO (tp_tipo) – NOVO
-        { id: "legend-tipo2", top: 80, left: "center", orient: "horizontal",
+        // (3) TIPO (tp_tipo) — subiu pra top: 56
+        { id: "legend-tipo2", top: 56, left: "center", orient: "horizontal",
           itemGap: 12, itemWidth: 22, itemHeight: 12, icon: "roundRect",
           data: tipos2, selected: Object.fromEntries(tipos2.map(t => [t, false])),
           textStyle: { fontSize: 12 } },
 
-        { id: "legend-sub-only", show: false,
-          data: [
+        // (4) SUBTIPO (tp_subtipo) — subiu pra top: 80
+        { id: "legend-subtipo", top: 80, left: "center", orient: "horizontal",
+          itemGap: 12, itemWidth: 22, itemHeight: 12, icon: "roundRect",
+          data: subtipos, selected: Object.fromEntries(subtipos.map(t => [t, false])),
+          textStyle: { fontSize: 12 } },
+
+        // FPC (permanece)
+        { id: "legend-fpc", top: 584, left: "center", itemGap: 18,
+          data: ["FPC SE", "FPC SU", "FPC NO", "FPC NE"], textStyle: { fontSize: 12 } },
+
+        // ocultas (inalteradas)
+        { id: "legend-sub-only", show: false, data: [
             "Rev · Sub SE","Rev · Sub SU","Rev · Sub NO","Rev · Sub NE",
             "MtM · Sub SE","MtM · Sub SU","MtM · Sub NO","MtM · Sub NE",
             "Vol · Sub SE","Vol · Sub SU","Vol · Sub NO","Vol · Sub NE",
@@ -530,21 +626,7 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
             "Vol · Sub SE":false, "Vol · Sub SU":false, "Vol · Sub NO":false, "Vol · Sub NE":false,
           }
         },
-
-        // (5) SUBTIPO (tp_subtipo) – NOVO
-        { id: "legend-subtipo", top: 104, left: "center", orient: "horizontal",
-          itemGap: 12, itemWidth: 22, itemHeight: 12, icon: "roundRect",
-          data: subtipos, selected: Object.fromEntries(subtipos.map(t => [t, false])),
-          textStyle: { fontSize: 12 } },
-
-        // FPC
-        { id: "legend-fpc", top: 584, left: "center", itemGap: 18,
-          data: ["FPC SE", "FPC SU", "FPC NO", "FPC NE"], textStyle: { fontSize: 12 } },
-
-        // ocultas
-        { id: "legend-combos", show: false, data: combosLegendData,
-          selected: comboSelectedInit },
-
+        { id: "legend-combos", show: false, data: combosLegendData, selected: comboSelectedInit },
         { id: "legend-type-only", show: false,
           data: [
             ...tipos.map(t => `Rev · ${t}`),
@@ -557,8 +639,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
             ...tipos.map(t => [`Vol · ${t}`, false]),
           ])
         },
-
-        // NOVAS ocultas: Tipo/Subtipo only
         { id: "legend-tipo2-only", show: false,
           data: [
             ...tipos2.map(t => `Rev · Tipo ${t}`),
@@ -584,6 +664,7 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
           ])
         },
       ],
+
       xAxis: [0,1,2,3].map((i) => ({
         type: "category",
         gridIndex: i,
@@ -611,13 +692,11 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         { type: "inside", xAxisIndex: [0,1,2,3], filterMode: "filter" },
       ],
       series: [
-        // fantasmas p/ botões:
         ...ghostSubSeries,
         ...ghostTipoSeries,
-        ...ghostTipo2Series,     // NOVO
-        ...ghostSubtipoSeries,   // NOVO
+        ...ghostTipo2Series,
+        ...ghostSubtipoSeries,
 
-        // Revenue (agregados + filtros)
         { name: "Total", type: "bar", xAxisIndex: 0, yAxisIndex: 0,
           barCategoryGap: "50%", barGap: "50%", data: revenueTOTAL, itemStyle: { color: COLORS.total } },
         { name: "Faturamento", type: "bar", xAxisIndex: 0, yAxisIndex: 0, stack: "rev-fc",
@@ -632,25 +711,29 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         ...seriesVolSubOnly,
 
         ...seriesRevCombo,
-        ...seriesRevTipoOnly,      // energia
-        ...seriesRevTipo2Only,     // NOVO: tp_tipo
-        ...seriesRevSubtipoOnly,   // NOVO: tp_subtipo
+        ...seriesRevTipoOnly, 
+        ...seriesRevTipo2Only,
+        ...seriesRevSubtipoOnly,
 
         // MtM
         { name: "Total", type: "bar", xAxisIndex: 1, yAxisIndex: 1,
           barCategoryGap: "30%", barGap: "10%", data: mtmTOTAL, itemStyle: { color: COLORS.total } },
         ...seriesMtmCombo,
         ...seriesMtmTipoOnly,
-        ...seriesMtmTipo2Only,     // NOVO
-        ...seriesMtmSubtipoOnly,   // NOVO
+        ...seriesMtmTipo2Only,
+        ...seriesMtmSubtipoOnly,
 
         // Volume
         { name: "Total", type: "bar", xAxisIndex: 2, yAxisIndex: 2,
           barCategoryGap: "30%", barGap: "10%", data: volumeTOTAL, itemStyle: { color: COLORS.total } },
+        // NOVAS séries agregadas do Volume:
+        { name: "Faturamento", type: "bar", xAxisIndex: 2, yAxisIndex: 2, stack: "vol-fc", data: volSellTOTAL },
+        { name: "Custo",       type: "bar", xAxisIndex: 2, yAxisIndex: 2, stack: "vol-fc", data: volBuyTOTAL },
+        { name: "Net",         type: "line",xAxisIndex: 2, yAxisIndex: 2, data: volNetTOTAL, smooth:false, showSymbol:false, z:4 },
         ...seriesVolCombo,
         ...seriesVolTipoOnly,
-        ...seriesVolTipo2Only,     // NOVO
-        ...seriesVolSubtipoOnly,   // NOVO
+        ...seriesVolTipo2Only,
+        ...seriesVolSubtipoOnly,
 
         // FPC (inalterado)
         { name: "FPC SE", type: "line", xAxisIndex: 3, yAxisIndex: 3, data: S(priceBySub.SE), smooth:false, showSymbol:false, connectNulls:true, z:3 },
@@ -661,19 +744,26 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       animationDuration: 220,
     };
   }, [
-    len, categories, combos, tipos,
-    revenueTOTAL, mtmTOTAL, volumeTOTAL,
-    priceBySub
+      len, categories, combos, tipos, tipos2, subtipos,
+      revenueTOTAL, mtmTOTAL, volumeTOTAL,
+      revFaturamento, revCusto, revNet,
+      // ⬇️ importantes para Sub × Tipo
+      revByCombo, mtmByCombo, volByCombo,
+      // se quiser garantir tudo atualizando:
+      revByTipo, mtmByTipo, volByTipo,
+      revByTipo2, mtmByTipo2, volByTipo2,
+      revBySubtipo, mtmBySubtipo, volBySubtipo,
+      revBySub, mtmBySub, volBySub,
+      volSellTOTAL, volBuyTOTAL, volNetTOTAL,
+      priceBySub
   ]);
 
   const onChartReady = (chart: any) => { chartRef.current = chart; };
 
-  // AND lógico: combo só aparece se Sub && Tipo estiverem marcados
   const onEvents = {
     legendselectchanged: (ev: any) => {
       const chart = chartRef.current; if (!chart) return;
 
-      // ⛔ Não sincronizar nada quando a legenda clicada for a do FPC
       if (ev?.legendId === "legend-fpc") return;
 
       const name = ev?.name as string;
@@ -690,12 +780,10 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
             if (ev?.selected?.hasOwnProperty(k)) ref.current[k] = !!ev.selected[k];
           });
         } else if (!ev?.legendId && byName(keys)) {
-          // fallback apenas quando NÃO houver legendId
           ref.current[name] = selected(name) ?? !ref.current[name];
         }
       };
 
-      // Atualiza estados dos 4 filtros (funciona com ou sem legendId)
       applySel(SUBS as unknown as string[], selectedSubRef as any, "legend-sub");
       applySel(tipos,                       selectedTipoRef,     "legend-tipo");
       applySel(tipos2,                      selectedTipo2Ref,    "legend-tipo2");
@@ -706,7 +794,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       const tipo2On   = Object.keys(selectedTipo2Ref.current).filter(t => selectedTipo2Ref.current[t]);
       const subtipoOn = Object.keys(selectedSubtipoRef.current).filter(t => selectedSubtipoRef.current[t]);
 
-      // 1) COMBOS Sub×TipoEnergia (só quando há Sub e TipoEnergia, e NÃO há Tipo/Subtipo)
       const showCombos = energiaOn.length > 0 && subsOn.length > 0 && tipo2On.length === 0 && subtipoOn.length === 0;
       SUBS.forEach((sub) => {
         tipos.forEach((tipo) => {
@@ -721,7 +808,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         });
       });
 
-      // 2) Tipo de ENERGIA only (quando só TipoEnergia estiver ativo)
       const showEnergiaOnly = energiaOn.length > 0 && subsOn.length === 0 && tipo2On.length === 0 && subtipoOn.length === 0;
       tipos.forEach((tipo) => {
         ["Rev","MtM","Vol"].forEach((pref) => {
@@ -733,7 +819,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         });
       });
 
-      // 3) TIPO (tp_tipo) only
       const showTipo2Only = tipo2On.length > 0 && subsOn.length === 0 && energiaOn.length === 0 && subtipoOn.length === 0;
       tipos2.forEach((t) => {
         ["Rev","MtM","Vol"].forEach((pref) => {
@@ -745,7 +830,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         });
       });
 
-      // 5) SUB only (quando só Sub estiver ativo)
       const showSubOnly = subsOn.length > 0 && energiaOn.length === 0 && tipo2On.length === 0 && subtipoOn.length === 0;
       (["SE","SU","NO","NE"] as Sub[]).forEach((s) => {
         ["Rev","MtM","Vol"].forEach((pref) => {
@@ -757,7 +841,6 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         });
       });
 
-      // 4) SUBTIPO (tp_subtipo) only
       const showSubtipoOnly = subtipoOn.length > 0 && subsOn.length === 0 && energiaOn.length === 0 && tipo2On.length === 0;
       subtipos.forEach((st) => {
         ["Rev","MtM","Vol"].forEach((pref) => {
@@ -774,7 +857,7 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
   return (
     <div style={{
       width: "100%",
-      height: '90vh',                 // <— usa a prop pra o card crescer
+      height: '90vh',
       padding: 20,
       boxSizing: "border-box",
       border: "1px solid var(--mui-palette-divider, #e5e7eb)",
@@ -785,7 +868,7 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     }}>
       <ReactECharts
         option={option}
-        style={{ width: "100%", height: '90vh' }}  // <— altura útil
+        style={{ width: "100%", height: '90vh' }}
         onChartReady={onChartReady}
         onEvents={onEvents}
         notMerge={false}
