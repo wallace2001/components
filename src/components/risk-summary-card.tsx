@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo } from "react";
 import ReactECharts from "echarts-for-react";
 import { Card, CardContent, Stack, Typography, Box } from "@mui/material";
@@ -38,7 +39,7 @@ export default function RiskArcAndBalanceCard({
   gaugeHeight?: number;
   gaugeCenterY?: string;
 }) {
-  const { rating, score_percent, balance } = data.risk_analysis;
+  const { balance } = data.risk_analysis;
 
 const [letter, riskLabel] = data.risk_analysis["rating"]
   .split("/")
@@ -46,15 +47,8 @@ const [letter, riskLabel] = data.risk_analysis["rating"]
 
 const percentText = `${(Number(data.risk_analysis["score_percent"]) * 100).toFixed(2)}`;
 
-  const raw = Number(score_percent || 0);
-  const frac = Math.max(0, Math.min(raw, 1));                  // 0..1 para color-stop
-  const valuePct = Math.round(raw * 100);
-  const cappedValue = Math.min(Math.max(valuePct, 0), 100);    // 0..100 p/ ponteiro/valor
-
   const PAD = 6;
   const RADIUS_PX = Math.floor(Math.min(gaugeWidth / 2 - PAD, gaugeHeight - PAD));
-
-  console.log(percentText);
 
   const gaugeOption = {
     title: [

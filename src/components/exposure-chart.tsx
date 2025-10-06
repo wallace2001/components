@@ -628,8 +628,8 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
           smooth: false, showSymbol: false, z: 4 },
 
         ...seriesRevSubOnly,
-...seriesMtmSubOnly,
-...seriesVolSubOnly,
+        ...seriesMtmSubOnly,
+        ...seriesVolSubOnly,
 
         ...seriesRevCombo,
         ...seriesRevTipoOnly,      // energia

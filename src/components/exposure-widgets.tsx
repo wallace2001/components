@@ -1,9 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // ExposureWidgets.tsx
 import React from "react";
 import ReactECharts from "echarts-for-react";
 import { Card, CardContent, Typography, Stack, Box } from "@mui/material";
-import RiskSummaryCard from "./risk-summary-card";
-import RiskArcAndBalanceCard from "./risk-summary-card";
 import millify from "millify";
 
 const fmtMWh = (v: number) => {
