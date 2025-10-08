@@ -1,32 +1,111 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactECharts from "echarts-for-react";
 
 type Sub = "SE" | "SU" | "NO" | "NE";
 type Monthly = any;
 
-const SLIDER_BOTTOM = 38;
-const SLIDER_HEIGHT = 30;
-const TOOLBOX_ICON  = 18;
-const DZ_GAP = 12;
-const TOOLBOX_BOTTOM = 27;
-const GRID4_BOTTOM =
-  Math.max(SLIDER_BOTTOM + SLIDER_HEIGHT + DZ_GAP, TOOLBOX_BOTTOM + TOOLBOX_ICON + 8);
+const Y_LABEL_W = 72;
+const LEFT_PAD = 50;
+
+const TOOLBOX_ICON   = 18;
+const SLIDER_HEIGHT  = 30;
+const FOOTER_GAP     = 12;
+const TOOLBOX_BOTTOM = 8;
+const SLIDER_BOTTOM  = TOOLBOX_BOTTOM + TOOLBOX_ICON + 10;
+const GRID4_BOTTOM   = SLIDER_BOTTOM + SLIDER_HEIGHT + FOOTER_GAP;
 
 const SUBS: Sub[] = ["SE", "SU", "NO", "NE"];
-
 const TIPO_ALLOWED: string[] | null = null;
 
 // ---------- utils ----------
 const toNum = (v: any) => (v == null || v === "" || isNaN(Number(v)) ? 0 : Number(v));
 const pad2 = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+const normalizeMonthKey = (raw: string): string | null => {
+  const s = String(raw).trim();
+
+  // 1) datas que o JS entende (YYYY-MM-DD, YYYY/MM/DD, etc.)
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return normMonth(d);
+
+  // 2) YYYY-MM ou YYYY/MM
+  let m = s.match(/^(\d{4})[-\/](\d{1,2})$/);
+  if (m) {
+    const y = +m[1], mon = +m[2];
+    if (mon >= 1 && mon <= 12) return `${y}-${("0"+mon).slice(-2)}-01`;
+  }
+
+  // 3) YYYYMM
+  m = s.match(/^(\d{4})(\d{2})$/);
+  if (m) {
+    const y = +m[1], mon = +m[2];
+    if (mon >= 1 && mon <= 12) return `${y}-${("0"+mon).slice(-2)}-01`;
+  }
+
+  // 4) MM/YYYY
+  m = s.match(/^(\d{1,2})[-\/](\d{4})$/);
+  if (m) {
+    const mon = +m[1], y = +m[2];
+    if (mon >= 1 && mon <= 12) return `${y}-${("0"+mon).slice(-2)}-01`;
+  }
+
+  return null;
+};
+
+const catBase = (k: string) => String(k).split(/[_\-. ]/)[0];
+
+const getKeyCI = (obj: any, key: string) => {
+  if (!obj || typeof obj !== "object") return undefined;
+  const hit = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
+  return hit ? obj[hit] : undefined;
+};
+
+const getCatVariantCI = (obj: any, base: string, variants: string[]) => {
+  if (!obj || typeof obj !== "object") return undefined;
+  const keys = Object.keys(obj);
+  const want = variants.map(v => `${base}_${v}`.toLowerCase());
+  const hit = keys.find(k => want.includes(k.toLowerCase()));
+  return hit ? obj[hit] : undefined;
+};
+
 const normMonth = (d: string | Date) => {
   const dt = new Date(d);
   const y = dt.getUTCFullYear();
   const m = dt.getUTCMonth() + 1;
   return `${y}-${pad2(m)}-01`;
 };
+
+const isDateKey = (k: string) => !isNaN(new Date(k).getTime());
+
+/** Tenta extrair um mapa { ISOstring: number } de dentro de obj.
+ * Suporta: direto (k=ISO → v=number) ou aninhado em price/prices/value/data/etc.
+ */
+function pickSeries(obj: any): Record<string, number> | null {
+  if (!obj || typeof obj !== "object") return null;
+
+  // tenta direto: { "YYYY-MM" | "YYYYMM" | "YYYY-MM-DD" | "MM/YYYY" : number|string }
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const iso = normalizeMonthKey(k);
+    if (!iso) continue;
+    const num = toNum(v as any);
+    if (!isNaN(num)) out[iso] = num;
+  }
+  if (Object.keys(out).length) return out;
+
+  // tenta dentro de campos comuns (price, prices, value, data, series…)
+  const CANDIDATES = ["price", "prices", "valor", "value", "val", "serie", "series", "data"];
+  for (const c of CANDIDATES) {
+    const sub = (obj as any)[c];
+    if (sub && typeof sub === "object") {
+      const inner = pickSeries(sub);
+      if (inner && Object.keys(inner).length) return inner;
+    }
+  }
+  return null;
+}
+
 const fmtMes = (iso: string) =>
   new Date(iso).toLocaleDateString("pt-BR", { month: "short", year: "2-digit", timeZone: "UTC" }).replace(".", "");
 const get = <T,>(o: any, ...keys: string[]): T | undefined => {
@@ -41,9 +120,9 @@ const fmtBRLFull = (v: number) =>
 const fmtBRLShort = (v: number) => {
   const sign = v < 0 ? "-" : "";
   const a = Math.abs(v);
-  if (a >= 1e12) return `${sign}R$ ${(a / 1e12).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} tri`;
-  if (a >= 1e9)  return `${sign}R$ ${(a / 1e9 ).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} bi`;
-  if (a >= 1e6)  return `${sign}R$ ${(a / 1e6 ).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (a >= 1e12) return `${sign}${(a / 1e12).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} tri`;
+  if (a >= 1e9)  return `${sign}${(a / 1e9 ).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} bi`;
+  if (a >= 1e6)  return `${sign}${(a / 1e6 ).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
   return `${sign}${fmtBRLFull(a)}`;
 };
 const fmtPrice = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -51,14 +130,10 @@ const fmtVol   = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDi
 
 const COLORS = {
   total: "#1f4e6b",
-  SE: "#60a5fa",
-  SU: "#a78bfa",
+  SE: "#e76f51",
+  SU: "#FF6666",
   NO: "#00bb60",
-  NE: "#d6e326",
-  fpcSE: "#f4b000",
-  fpcSU: "#e76f51",
-  fpcNO: "#6f6f6f",
-  fpcNE: "#FF6666",
+  NE: "#1d4d39ff",
 };
 
 function tint(base: string, idx: number) {
@@ -72,32 +147,52 @@ function tint(base: string, idx: number) {
   return `rgb(${r},${g},${b})`;
 }
 
+const normSub = (s: any): Sub | null => {
+  const v = String(s ?? "").toUpperCase().trim();
+  switch (v) {
+    case "SE": case "SUDESTE": return "SE";
+    case "SU": case "SUL":     return "SU";
+    case "NE": case "NORDESTE":return "NE";
+    case "NO": case "NORTE":   return "NO";
+    default: return null;
+  }
+};
+
 export default function ExposureChart({ monthly, height = 780 }: { monthly: Monthly; height?: number }) {
   const chartRef = useRef<any>(null);
-  const selectedSubRef  = useRef<Record<Sub, boolean>>({ SE:false, SU:false, NO:false, NE:false });
-  const selectedTipoRef = useRef<Record<string, boolean>>({}); // preenchido depois
-  const selectedTipo2Ref   = useRef<Record<string, boolean>>({}); // tp_tipo
-  const selectedSubtipoRef = useRef<Record<string, boolean>>({}); // tp_subtipo
 
   const forward    = monthly?.forward ?? {};
   const totalsRaw  = (monthly?.totals as any[]) ?? [];
   const detailsRaw = (monthly?.details as any[]) ?? [];
 
-  // -------- categorias --------
+  // -------- categorias (meses) --------
   const { categoriesISO, categories, idxByDate } = useMemo(() => {
     const dateSet = new Set<string>();
     for (const t of totalsRaw) {
       const iso = get<string>(t, "supply_period", "month", "period", "date");
       if (iso) dateSet.add(normMonth(iso));
     }
+  
     for (const d of detailsRaw) {
       const iso = get<string>(d, "supply_period", "month", "period", "date");
       if (iso) dateSet.add(normMonth(iso));
     }
     SUBS.forEach((sub) => {
-      const con = getSub(forward, sub)?.CON ?? {};
-      Object.keys(con || {}).forEach((k) => dateSet.add(normMonth(k)));
+      const fsub = getSub(forward, sub) ?? {};
+      Object.keys(fsub || {}).forEach((cat) => {
+        const entry  = fsub[cat];
+        const main   = pickSeries(entry);
+        const buyObj = fsub[`${cat}_buy_avg`]  ?? entry?.price_buy_avg ?? entry?.buy_avg;
+        const sellObj= fsub[`${cat}_sell_avg`] ?? entry?.price_sell_avg ?? entry?.sell_avg;
+
+        if (main)   Object.keys(main).forEach((k) => dateSet.add(normMonth(k)));
+        const buy   = pickSeries(buyObj);
+        const sell  = pickSeries(sellObj);
+        if (buy)  Object.keys(buy ).forEach((k) => dateSet.add(normMonth(k)));
+        if (sell) Object.keys(sell).forEach((k) => dateSet.add(normMonth(k)));
+      });
     });
+
     const ISO = Array.from(dateSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     const LAB = ISO.map(fmtMes);
     const IDX = new Map(ISO.map((d, i) => [d, i]));
@@ -106,758 +201,685 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
 
   const len = categoriesISO.length;
 
-  const tipos2: string[] = useMemo(() => {
-    const s = new Set<string>();
-    for (const d of detailsRaw) {
-      const t = (get<string>(d, "tp_tipo", "tipo") || "").toUpperCase().trim();
-      if (t) s.add(t);
-    }
-    return Array.from(s.values());
-  }, [detailsRaw]);
-
-  const subtipos: string[] = useMemo(() => {
-    const s = new Set<string>();
-    for (const d of detailsRaw) {
-      const t = (get<string>(d, "tp_subtipo", "subtipo", "sub_type") || "").toUpperCase().trim();
-      if (t) s.add(t);
-    }
-    return Array.from(s.values());
-  }, [detailsRaw]);
-
-  // inicializa intenção (desligados)
-  tipos2.forEach(t => { if (selectedTipo2Ref.current[t] == null) selectedTipo2Ref.current[t] = false; });
-  subtipos.forEach(t => { if (selectedSubtipoRef.current[t] == null) selectedSubtipoRef.current[t] = false; });
-
   // ---- agregados principais (Totals) ----
   const revenueTOTAL = arr(len, 0);
   const mtmTOTAL     = arr(len, 0);
   const volumeTOTAL  = arr(len, 0);
 
-  // ---- agregados p/ Revenue (voltar) ----
-  const revFaturamento = arr(len, 0);
-  const revCusto       = arr(len, 0);
-  const revNet         = arr(len, 0);
+  // ---- Revenue (+Receita / -Custo) ----
+  const revReceita = arr(len, 0);
+  const revCusto   = arr(len, 0);  // NEGATIVO
+  const revNet     = arr(len, 0);
 
-  // NOVOS para Volume:
-  const volSellTOTAL = arr(len, 0); // volume de venda (MWm)
-  const volBuyTOTAL  = arr(len, 0); // volume de compra (MWm)
-  const volNetTOTAL  = arr(len, 0); // sell - buy (MWm)
+  // ---- Volume (Vendido / Comprado negativo) ----
+  const volVendido = arr(len, 0);
+  const volComprado = arr(len, 0); // NEGATIVO
+  const volNetTOTAL = arr(len, 0);
 
-
-  const revByTipo2:   Record<string, number[]> = Object.fromEntries(tipos2.map(t => [t, arr(len, 0)])) as any;
-  const mtmByTipo2:   Record<string, number[]> = Object.fromEntries(tipos2.map(t => [t, arr(len, 0)])) as any;
-  const volByTipo2:   Record<string, number[]> = Object.fromEntries(tipos2.map(t => [t, arr(len, 0)])) as any;
-
-  const revBySubtipo: Record<string, number[]> = Object.fromEntries(subtipos.map(t => [t, arr(len, 0)])) as any;
-  const mtmBySubtipo: Record<string, number[]> = Object.fromEntries(subtipos.map(t => [t, arr(len, 0)])) as any;
-  const volBySubtipo: Record<string, number[]> = Object.fromEntries(subtipos.map(t => [t, arr(len, 0)])) as any;
-
-  // --- agregados por SUB (quando apenas sub estiver selecionado)
+  // Agregados por SUB
   const revBySub: Record<Sub, number[]> = { SE: arr(len,0), SU: arr(len,0), NO: arr(len,0), NE: arr(len,0) };
   const mtmBySub: Record<Sub, number[]> = { SE: arr(len,0), SU: arr(len,0), NO: arr(len,0), NE: arr(len,0) };
   const volBySub: Record<Sub, number[]> = { SE: arr(len,0), SU: arr(len,0), NO: arr(len,0), NE: arr(len,0) };
 
-  // --- Totais (revenueTOTAL, mtmTOTAL, volumeTOTAL) ---
-  for (const t of totalsRaw) {
-    const i = idxByDate.get(
-      normMonth(get<string>(t, "supply_period", "month", "period", "date") ?? "")
-    );
-    if (i == null) continue;
-
-    const revenue = toNum(get<number>(t, "revenue", "total_revenue", "rev"));
-    const mtm     = toNum(get<number>(t, "mtm", "mtm_value", "marktomarket"));
-    const sell    = toNum(get<number>(t, "volume_sell_mwm", "volume_sell", "vol_sell", "sell_mwm"));
-    const buy     = toNum(get<number>(t, "volume_buy_mwm",  "volume_buy",  "vol_buy",  "buy_mwm"));
-
-    revenueTOTAL[i] += revenue;
-    mtmTOTAL[i]     += mtm;
-    volumeTOTAL[i]  += (sell + buy);
-
-    volSellTOTAL[i] += sell;
-    volBuyTOTAL[i]  += buy;
-  }
-
-  for (let i = 0; i < len; i++) {
-    revNet[i]     = revFaturamento[i] - revCusto[i];
-    volNetTOTAL[i] = volSellTOTAL[i] - volBuyTOTAL[i]; // NOVO
-  }
-
-  // -------- Price FWD --------
-  const priceBySub: Record<Sub, (number | null)[]> = {
-    SE: arr(len, null), SU: arr(len, null), NO: arr(len, null), NE: arr(len, null),
-  };
-  (["SE","SU","NO","NE"] as Sub[]).forEach((sub) => {
-    const con = getSub(forward, sub)?.CON ?? {};
-    for (const k of Object.keys(con)) {
-      const i = idxByDate.get(normMonth(k));
-      if (i != null) priceBySub[sub][i] = toNum(con[k]);
-    }
-  });
-
-  // --------- Tipos (tp_tipo_energia) ----------
-  const tipos: string[] = useMemo(() => {
+  // -------- tipos / categorias ----------
+  const tiposFromDetails: string[] = useMemo(() => {
     const s = new Set<string>();
-    for (const d of detailsRaw) {
+    detailsRaw.forEach((d) => {
       const t = (get<string>(d, "tp_tipo_energia", "tipo", "energy_type") || "").toUpperCase().trim();
       if (t) s.add(t);
-    }
-    const all = Array.from(s.values());
-    return TIPO_ALLOWED ? all.filter(t => TIPO_ALLOWED.includes(t)) : all;
+    });
+    return Array.from(s.values());
   }, [detailsRaw]);
 
-  tipos.forEach(t => { if (selectedTipoRef.current[t] == null) selectedTipoRef.current[t] = false; });
+  const catsFromForward: string[] = useMemo(() => {
+    const s = new Set<string>();
+    SUBS.forEach((sub) => {
+      const fsub = getSub(forward, sub) ?? {};
+      Object.keys(fsub).forEach((k) => {
+        const base = String(k).split(/[_\-. ]/)[0].toUpperCase();
+        if (base) s.add(base);
+      });
+    });
+    return Array.from(s.values());
+  }, [forward]);
 
-  // --------- Combinações Sub × Tipo ----------
+  const tiposAll: string[] = useMemo(() => {
+    const u = new Set<string>([...tiposFromDetails, ...catsFromForward]);
+    const all = Array.from(u.values());
+    return TIPO_ALLOWED ? all.filter(t => TIPO_ALLOWED.includes(t)) : all;
+  }, [tiposFromDetails, catsFromForward]);
+
   type ComboKey = `${Sub}|${string}`;
   const combos: ComboKey[] = useMemo(
-    () => SUBS.flatMap((sub) => tipos.map((tp) => `${sub}|${tp}` as ComboKey)),
-    [tipos]
+    () => SUBS.flatMap((sub) => tiposAll.map((tp) => `${sub}|${tp}` as ComboKey)),
+    [tiposAll]
   );
 
   const revByCombo: Record<ComboKey, number[]> = Object.fromEntries(combos.map(k => [k, arr(len, 0)])) as any;
   const mtmByCombo: Record<ComboKey, number[]> = Object.fromEntries(combos.map(k => [k, arr(len, 0)])) as any;
   const volByCombo: Record<ComboKey, number[]> = Object.fromEntries(combos.map(k => [k, arr(len, 0)])) as any;
 
-  const revByTipo: Record<string, number[]> = Object.fromEntries(tipos.map(t => [t, arr(len, 0)])) as any;
-  const mtmByTipo: Record<string, number[]> = Object.fromEntries(tipos.map(t => [t, arr(len, 0)])) as any;
-  const volByTipo: Record<string, number[]> = Object.fromEntries(tipos.map(t => [t, arr(len, 0)])) as any;
+    // --- AGREGA DOS TOTAIS (totalsRaw) ---
+  for (const t of totalsRaw) {
+      const i = idxByDate.get(
+        normMonth(get<string>(t, "supply_period", "month", "period", "date") ?? "")
+      );
+      if (i == null) continue;
 
-  for (const d of detailsRaw) {
-    const tipo = (get<string>(d, "tp_tipo_energia", "tipo", "energy_type") || "").toUpperCase().trim();
-    if (!tipos.includes(tipo)) continue;
-    const i = idxByDate.get(normMonth(get<string>(d, "supply_period", "month", "period", "date") ?? "")); 
-    if (i == null) continue;
+      const revenue = toNum(get<number>(t, "revenue", "total_revenue", "rev"));
+      const mtm     = toNum(get<number>(t, "mtm", "mtm_value", "marktomarket"));
+      const sell    = toNum(get<number>(t, "volume_sell_mwm", "volume_sell", "vol_sell", "sell_mwm"));
+      const buy     = toNum(get<number>(t, "volume_buy_mwm",  "volume_buy",  "vol_buy",  "buy_mwm"));
 
-    revByTipo[tipo][i] += toNum(get<number>(d, "revenue", "total_revenue", "rev"));
-    mtmByTipo[tipo][i] += toNum(get<number>(d, "mtm", "mtm_value", "marktomarket"));
-    const sell = toNum(get<number>(d, "volume_sell_mwm", "volume_sell", "vol_sell", "sell_mwm"));
-    const buy  = toNum(get<number>(d, "volume_buy_mwm",  "volume_buy",  "vol_buy",  "buy_mwm"));
-    volByTipo[tipo][i] += (sell + buy);
+      revenueTOTAL[i] += revenue;
+      mtmTOTAL[i]     += mtm;
+
+      // Volume agregado
+      volVendido[i]   += sell;
+      volComprado[i]  += -Math.abs(buy);
+      volumeTOTAL[i]  += sell + (-Math.abs(buy));
   }
 
-  // helpers
-  const comboName = (p:"Rev"|"MtM"|"Vol", sub:Sub, tipo:string) => `${p} ${sub}·${tipo}`;
-
-  const normSub = (s: any): Sub | null => {
-  const v = String(s ?? "").toUpperCase().trim();
-  switch (v) {
-      case "SE": case "SUDESTE": return "SE";
-      case "SU": case "SUL":     return "SU";
-      case "NE": case "NORDESTE":return "NE";
-      case "NO": case "NORTE":   return "NO";
-      default: return null;
-    }
-  };
-
+  // Totais + combos
   for (const d of detailsRaw) {
-    const i = idxByDate.get(
-      normMonth(get<string>(d, "supply_period", "month", "period", "date") ?? "")
-    );
+    const i = idxByDate.get(normMonth(get<string>(d, "supply_period", "month", "period", "date") ?? ""));
     if (i == null) continue;
 
     const tipoEnergia = (get<string>(d, "tp_tipo_energia", "tipo", "energy_type") || "").toUpperCase().trim();
-    const tipo2       = (get<string>(d, "tp_tipo", "tipo") || "").toUpperCase().trim();
-    const subtipo     = (get<string>(d, "tp_subtipo", "subtipo", "sub_type") || "").toUpperCase().trim();
-
     const r  = toNum(get<number>(d, "revenue", "total_revenue", "rev"));
     const m  = toNum(get<number>(d, "mtm", "mtm_value", "marktomarket"));
     const s  = toNum(get<number>(d, "volume_sell_mwm", "volume_sell", "vol_sell", "sell_mwm"));
     const b  = toNum(get<number>(d, "volume_buy_mwm",  "volume_buy",  "vol_buy",  "buy_mwm"));
-    const vb = s + b;
     const c  = toNum(get<number>(d, "cost"));
+    const sub = normSub(get<string>(d, "tp_submercado","submercado","sub_mercado","submarket","sub"));
 
-    if (r >= 0) revFaturamento[i] += r; else revCusto[i] += Math.abs(r);
-    if (c < 0)  revCusto[i]       += Math.abs(c);
-    if (c > 0)  revFaturamento[i] += c;
+    if (r >= 0) revReceita[i] += r; else revCusto[i] += r;
+    if (c !== 0) revCusto[i]  += -Math.abs(c);
 
-    if (tipo2 && revByTipo2[tipo2]) {
-      revByTipo2[tipo2][i] += r;
-      mtmByTipo2[tipo2][i] += m;
-      volByTipo2[tipo2][i] += vb;
-    }
+    const vb = s + (-Math.abs(b));
+    if (sub) {
+      revBySub[sub][i] += r;
+      mtmBySub[sub][i] += m;
+      volBySub[sub][i] += vb;
 
-    if (subtipo && revBySubtipo[subtipo]) {
-      revBySubtipo[subtipo][i] += r;
-      mtmBySubtipo[subtipo][i] += m;
-      volBySubtipo[subtipo][i] += vb;
-    }
-
-    if (tipoEnergia && revByTipo[tipoEnergia]) {
-      revByTipo[tipoEnergia][i] += r;
-      mtmByTipo[tipoEnergia][i] += m;
-      volByTipo[tipoEnergia][i] += vb;
-
-      const subRaw = get<string>(d, "tp_submercado","submercado","sub_mercado","submarket","sub");
-      const sub = normSub(subRaw);
-      if (sub) {
-        revBySub[sub][i] += r;
-        mtmBySub[sub][i] += m;
-        volBySub[sub][i] += vb;
-
-        // ⬇️ NOVO: alimentar as séries "Sub × Tipo"
-        const key = `${sub}|${tipoEnergia}` as `${Sub}|${string}`;
+      if (tipoEnergia) {
+        const key = `${sub}|${tipoEnergia}` as ComboKey;
         if (revByCombo[key]) {
           revByCombo[key][i] += r;
           mtmByCombo[key][i] += m;
-          volByCombo[key][i] += vb; // usa sell+buy, como nas outras agregações
+          volByCombo[key][i] += vb;
         }
       }
     }
   }
 
-  for (let i = 0; i < len; i++) revNet[i] = revFaturamento[i] - revCusto[i];
+  for (let i = 0; i < len; i++) {
+    revNet[i] = revReceita[i] + revCusto[i];
+    volNetTOTAL[i] = volVendido[i] + volComprado[i];
+  }
+
+  // -------- PRICE (forward) --------
+  type PriceKey = `${Sub} ${string}`;
+
+  // mantém bases "raw" por sub (sem upper)
+  const priceCatsBySubRaw: Record<Sub, string[]> = useMemo(() => {
+    const out: Record<Sub, string[]> = { SE:[], SU:[], NO:[], NE:[] };
+    SUBS.forEach((sub) => {
+      const fsub = getSub(forward, sub) ?? {};
+      const cats = new Set<string>();
+      Object.keys(fsub).forEach((k) => {
+        const base = catBase(k);
+        if (base) cats.add(base);
+      });
+      out[sub] = Array.from(cats.values());
+    });
+    return out;
+  }, [forward]);
+
+  // labels da legenda + mapa label→baseRaw (para lookup)
+  const { priceKeys, labelToRaw } = useMemo(() => {
+    const labels: PriceKey[] = [];
+    const map: Record<string, string> = {};
+    SUBS.forEach((sub) => {
+      priceCatsBySubRaw[sub].forEach((raw) => {
+        const label = `${sub} ${raw.toUpperCase()}` as PriceKey; // legenda bonita
+        labels.push(label);
+        map[label] = raw; // para buscar no objeto com o case correto
+      });
+    });
+    return { priceKeys: labels, labelToRaw: map };
+  }, [priceCatsBySubRaw]);
+
+  // === MÉDIA PONDERADA DOS PREÇOS MÉDIOS A PARTIR DE details ===
+  type MonthAgg = Record<string, { sum: number; vol: number }>;
+
+  const buyAgg: Record<ComboKey, MonthAgg> = {};
+  const sellAgg: Record<ComboKey, MonthAgg> = {};
+
+  for (const d of detailsRaw) {
+    const sub = normSub(get<string>(d, "tp_submercado","submercado","sub_mercado","submarket","sub"));
+    const tipo = (get<string>(d, "tp_tipo_energia","tipo","energy_type") || "").toUpperCase().trim();
+    const iso = normMonth(get<string>(d, "supply_period","month","period","date") || "");
+    if (!sub || !tipo || !iso) continue;
+    const key = `${sub}|${tipo}` as ComboKey;
+
+    const vb = Math.max(0, toNum(get<number>(d, "volume_buy_mwm","volume_buy","vol_buy","buy_mwm")));
+    const vs = Math.max(0, toNum(get<number>(d, "volume_sell_mwm","volume_sell","vol_sell","sell_mwm")));
+
+    const pb = get<number>(d, "price_buy_avg","buy_avg");
+    const ps = get<number>(d, "price_sell_avg","sell_avg");
+
+    if (pb != null && !isNaN(+pb) && vb > 0) {
+      (buyAgg[key] ||= {})[iso] = {
+        sum: ((buyAgg[key]?.[iso]?.sum) ?? 0) + Number(pb) * vb,
+        vol: ((buyAgg[key]?.[iso]?.vol) ?? 0) + vb,
+      };
+    }
+    if (ps != null && !isNaN(+ps) && vs > 0) {
+      (sellAgg[key] ||= {})[iso] = {
+        sum: ((sellAgg[key]?.[iso]?.sum) ?? 0) + Number(ps) * vs,
+        vol: ((sellAgg[key]?.[iso]?.vol) ?? 0) + vs,
+      };
+    }
+  }
+
+  const buyAvgByMonth: Record<ComboKey, Record<string, number>> = {};
+  const sellAvgByMonth: Record<ComboKey, Record<string, number>> = {};
+  (Object.keys(buyAgg) as ComboKey[]).forEach((k) => {
+    const m: Record<string, number> = {};
+    Object.entries(buyAgg[k]).forEach(([iso, { sum, vol }]) => { if (vol > 0) m[iso] = sum / vol; });
+    buyAvgByMonth[k] = m;
+  });
+  (Object.keys(sellAgg) as ComboKey[]).forEach((k) => {
+    const m: Record<string, number> = {};
+    Object.entries(sellAgg[k]).forEach(([iso, { sum, vol }]) => { if (vol > 0) m[iso] = sum / vol; });
+    sellAvgByMonth[k] = m;
+  });
 
 
-  // -------- option --------
+  const priceMain: Record<PriceKey, (number|null)[]> =
+    Object.fromEntries(priceKeys.map(k => [k, arr(len, null)])) as any;
+  const priceBuyAvg: Record<PriceKey, (number|null)[]> =
+    Object.fromEntries(priceKeys.map(k => [k, arr(len, null)])) as any;
+  const priceSellAvg: Record<PriceKey, (number|null)[]> =
+    Object.fromEntries(priceKeys.map(k => [k, arr(len, null)])) as any;
+
+  const isNumLike = (x: any) =>
+    x != null && (typeof x === "number" || (typeof x === "string" && x.trim() !== "" && !isNaN(Number(x))));
+
+  function fillFrom(obj: any, arrRef: (number | null)[], mask?: (number | null)[]) {
+    // Se vier um único número, pinta onde houver mask (priceMain) ou tudo
+    if (isNumLike(obj)) {
+      const val = Number(obj);
+      for (let i = 0; i < arrRef.length; i++) {
+        if (!mask || mask[i] != null) arrRef[i] = val;
+      }
+      return;
+    }
+    const series = pickSeries(obj);
+    if (!series) return;
+    for (const [k, v] of Object.entries(series)) {
+      const i = idxByDate.get(normMonth(k));
+      if (i != null) arrRef[i] = toNum(v);
+    }
+  }
+
+  // === FALLBACK: usa os avg agregados de details quando não existem no forward ===
+  function fillFromAgg(
+    agg: Record<ComboKey, Record<string, number>>,
+    target: Record<`${Sub} ${string}`, (number|null)[]>
+  ) {
+    SUBS.forEach((sub) => {
+      tiposAll.forEach((tipo) => {
+        const key = `${sub}|${tipo}` as ComboKey;
+        const label = `${sub} ${tipo}` as `${Sub} ${string}`;
+        const m = agg[key];
+        if (!m) return;
+        categoriesISO.forEach((iso, i) => {
+          if (m[iso] != null) target[label][i] = m[iso];
+        });
+      });
+    });
+  }
+
+  fillFromAgg(buyAvgByMonth,  priceBuyAvg);
+  fillFromAgg(sellAvgByMonth, priceSellAvg);
+
+  // preencher usando busca case-insensível + variantes
+  SUBS.forEach((sub) => {
+    const fsub = getSub(forward, sub) ?? {};
+    priceKeys.forEach((label) => {
+      if (!label.startsWith(sub + " ")) return;
+      const raw = labelToRaw[label];
+
+      const entry   = getKeyCI(fsub, raw) ?? {};
+      const buyObj  = getCatVariantCI(fsub, raw, ["buy_avg", "avg_buy"])
+                  ?? entry?.price_buy_avg ?? entry?.buy_avg;
+      const sellObj = getCatVariantCI(fsub, raw, ["sell_avg", "avg_sell"])
+                  ?? entry?.price_sell_avg ?? entry?.sell_avg;
+
+      fillFrom(entry,   priceMain[label]);          // série principal (igual antes)
+      fillFrom(buyObj,  priceBuyAvg[label]);        // SEM máscara
+      fillFrom(sellObj, priceSellAvg[label]);       // SEM máscara
+
+    });
+  });
+  // === CONTROLE DE LEGEND (todos selecionados por padrão) ===
+  const [legendSel, setLegendSel] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const next: Record<string, boolean> = {};
+    priceKeys.forEach((label) => {
+      next[label] = legendSel.hasOwnProperty(label) ? !!legendSel[label] : true;
+    });
+    const same = JSON.stringify(next) === JSON.stringify(legendSel);
+    if (!same) setLegendSel(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(priceKeys)]);
+
+  const selectedPairs = useMemo(() => {
+    const out: Array<{ sub: Sub; tipo: string }> = [];
+    Object.entries(legendSel).forEach(([label, on]) => {
+      if (!on) return;
+      const [subStr, ...rest] = label.split(" ");
+      const sub = subStr as Sub;
+      const tipo = (rest.join(" ") || "").toUpperCase().trim();
+      if (SUBS.includes(sub) && tipo) out.push({ sub, tipo });
+    });
+    return out;
+  }, [legendSel]);
+
   const option = useMemo(() => {
     const S = (a?: (number | null)[]) => (a ?? arr(len, 0));
+    const colorFor = (sub: Sub, tipo: string) => tint(COLORS[sub], Math.max(0, tiposAll.indexOf(tipo)));
+    const anyPairSelected = selectedPairs.length > 0;
 
-    const seriesRevCombo = combos.map((k) => {
-      const [sub, tipo] = k.split("|") as [Sub, string];
-      const color = tint(COLORS[sub], tipos.indexOf(tipo));
-      return { name: comboName("Rev", sub, tipo), type:"bar", xAxisIndex:0, yAxisIndex:0,
-               stack:`rev-${sub}`, barCategoryGap:"30%", barGap:"-100%", data:S(revByCombo[k]),
-               itemStyle:{ color } };
+    // ==== SERIES PRICE (grid 0) ====
+    const seriesPrice: any[] = [];
+
+    const mkLine = (
+      id: string,
+      name: string,
+      data: (number|null)[],
+      color: string,
+      dashed = false,
+      withSymbols = false,
+      connect = true
+    ) => ({
+      id,
+      name,
+      type: "line",
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      data,
+      // símbolos ON para séries esparsas (buy/sell) para aparecer ponto isolado
+      showSymbol: withSymbols ? "auto" : false,
+      symbol: "circle",
+      symbolSize: 4,
+      // usar lineStyle para cor/traço
+      lineStyle: { width: dashed ? 1.6 : 2.2, type: dashed ? "dashed" : "solid", color },
+      itemStyle: { color }, // deixa aqui só para o símbolo
+      connectNulls: connect, // para médias: false (não ligar buracos)
+      z: dashed ? 3 : 4,
+      emphasis: { lineStyle: { width: dashed ? 2 : 3 } },
     });
-    const seriesMtmCombo = combos.map((k) => {
-      const [sub, tipo] = k.split("|") as [Sub, string];
-      const color = tint(COLORS[sub], tipos.indexOf(tipo));
-      return { name: comboName("MtM", sub, tipo), type:"bar", xAxisIndex:1, yAxisIndex:1,
-               stack:`mtm-${sub}`, barCategoryGap:"30%", barGap:"-100%", data:S(mtmByCombo[k]),
-               itemStyle:{ color } };
+
+    priceKeys.forEach((name) => {
+      const [subStr, ...rest] = name.split(" ");
+      const sub = subStr as Sub;
+      const tipo = rest.join(" ");
+      const color = colorFor(sub, tipo);
+
+      // principal (contínua)
+      if (priceMain[name]?.some(v => v != null)) {
+        seriesPrice.push(mkLine(`price|${name}|main`, name, priceMain[name], color, false, false, true));
+      }
+      // média compra (tracejada + símbolos + NÃO conectar nulos)
+      if (priceBuyAvg[name]?.some(v => v != null)) {
+        seriesPrice.push(mkLine(`price|${name}|buy`, name, priceBuyAvg[name], color, true, true, false));
+      }
+      // média venda (tracejada + símbolos + NÃO conectar nulos)
+      if (priceSellAvg[name]?.some(v => v != null)) {
+        seriesPrice.push(mkLine(`price|${name}|sell`, name, priceSellAvg[name], color, true, true, false));
+      }
     });
-    const seriesVolCombo = combos.map((k) => {
-      const [sub, tipo] = k.split("|") as [Sub, string];
-      const color = tint(COLORS[sub], tipos.indexOf(tipo));
-      return { name: comboName("Vol", sub, tipo), type:"bar", xAxisIndex:2, yAxisIndex:2,
-               stack:`vol-${sub}`, barCategoryGap:"30%", barGap:"-100%", data:S(volByCombo[k]),
-               itemStyle:{ color } };
-    });
 
-    const seriesRevTipo2Only = tipos2.map((t, i) => ({
-      name: `Rev · Tipo ${t}`, type: "bar", xAxisIndex: 0, yAxisIndex: 0,
-      stack: "rev-tipo2", barCategoryGap: "50%", barGap: "-100%",
-      data: S(revByTipo2[t]), itemStyle: { color: tint(COLORS.total, i + 1) }
-    }));
-    const seriesMtmTipo2Only = tipos2.map((t, i) => ({
-      name: `MtM · Tipo ${t}`, type: "bar", xAxisIndex: 1, yAxisIndex: 1,
-      stack: "mtm-tipo2", barCategoryGap: "50%", barGap: "-100%",
-      data: S(mtmByTipo2[t]), itemStyle: { color: tint(COLORS.total, i + 1) }
-    }));
-    const seriesVolTipo2Only = tipos2.map((t, i) => ({
-      name: `Vol · Tipo ${t}`, type: "bar", xAxisIndex: 2, yAxisIndex: 2,
-      stack: "vol-tipo2", barCategoryGap: "50%", barGap: "-100%",
-      data: S(volByTipo2[t]), itemStyle: { color: tint(COLORS.total, i + 1) }
-    }));
+    // ===== SERIES MTM / VOL / REV =====
+    const BAR_WIDE = { barMaxWidth: 26, barMinHeight: 3, barCategoryGap: "12%", barGap: "-10%" };
+    const BAR_WIDE_AGG = { barMaxWidth: 22, barMinHeight: 3, barCategoryGap: "16%", barGap: "20%" };
 
-    const seriesRevSubtipoOnly = subtipos.map((t, i) => ({
-      name: `Rev · Subtipo ${t}`, type: "bar", xAxisIndex: 0, yAxisIndex: 0,
-      stack: "rev-subtipo", barCategoryGap: "50%", barGap: "-100%",
-      data: S(revBySubtipo[t]), itemStyle: { color: tint(COLORS.total, i + 2) }
-    }));
-    const seriesMtmSubtipoOnly = subtipos.map((t, i) => ({
-      name: `MtM · Subtipo ${t}`, type: "bar", xAxisIndex: 1, yAxisIndex: 1,
-      stack: "mtm-subtipo", barCategoryGap: "50%", barGap: "-100%",
-      data: S(mtmBySubtipo[t]), itemStyle: { color: tint(COLORS.total, i + 2) }
-    }));
-    const seriesVolSubtipoOnly = subtipos.map((t, i) => ({
-      name: `Vol · Subtipo ${t}`, type: "bar", xAxisIndex: 2, yAxisIndex: 2,
-      stack: "vol-subtipo", barCategoryGap: "50%", barGap: "-100%",
-      data: S(volBySubtipo[t]), itemStyle: { color: tint(COLORS.total, i + 2) }
-    }));
+    const seriesMtm: any[] = [];
+    const seriesVol: any[] = [];
+    const seriesRev: any[] = [];
 
-    const seriesRevSubOnly = (["SE","SU","NO","NE"] as Sub[]).map((s) => ({
-      name: `Rev · Sub ${s}`,
-      type: "bar", xAxisIndex: 0, yAxisIndex: 0,
-      stack: "rev-sub-only", barCategoryGap: "50%", barGap: "-100%",
-      data: S(revBySub[s]), itemStyle: { color: COLORS[s] as string },
-    }));
-    const seriesMtmSubOnly = (["SE","SU","NO","NE"] as Sub[]).map((s) => ({
-      name: `MtM · Sub ${s}`,
-      type: "bar", xAxisIndex: 1, yAxisIndex: 1,
-      stack: "mtm-sub-only", barCategoryGap: "50%", barGap: "-100%",
-      data: S(mtmBySub[s]), itemStyle: { color: COLORS[s] as string },
-    }));
-    const seriesVolSubOnly = (["SE","SU","NO","NE"] as Sub[]).map((s) => ({
-      name: `Vol · Sub ${s}`,
-      type: "bar", xAxisIndex: 2, yAxisIndex: 2,
-      stack: "vol-sub-only", barCategoryGap: "50%", barGap: "-100%",
-      data: S(volBySub[s]), itemStyle: { color: COLORS[s] as string },
-    }));
+    if (anyPairSelected) {
+      selectedPairs.forEach(({ sub, tipo }) => {
+        const key = `${sub}|${tipo}` as `${Sub}|${string}`;
+        const color = colorFor(sub, tipo);
 
-    const ghostTipo2Series = tipos2.map((t, i) => ({
-      name: t,
-      type: "line",
-      xAxisIndex: 0, yAxisIndex: 0,
-      data: arr(len, null),
-      silent: true, showSymbol: false, hoverAnimation: false,
-      lineStyle: { width: 0, opacity: 0 },
-      itemStyle: { color: tint(COLORS.total, i + 1) },
-      tooltip: { show: false },
-    }));
+        seriesMtm.push({
+          name: `MtM ${sub}·${tipo}`,
+          type: "bar", xAxisIndex: 1, yAxisIndex: 1,
+          stack: `mtm-${sub}`, data: S(mtmByCombo[key]),
+          itemStyle: { color }, ...BAR_WIDE,
+        });
 
-    const ghostSubtipoSeries = subtipos.map((t, i) => ({
-      name: t,
-      type: "line",
-      xAxisIndex: 0, yAxisIndex: 0,
-      data: arr(len, null),
-      silent: true, showSymbol: false, hoverAnimation: false,
-      lineStyle: { width: 0, opacity: 0 },
-      itemStyle: { color: tint(COLORS.total, i + 2) },
-      tooltip: { show: false },
-    }));
+        seriesVol.push({
+          name: `Vol ${sub}·${tipo}`,
+          type: "bar", xAxisIndex: 2, yAxisIndex: 2,
+          stack: `vol-${sub}`, data: S(volByCombo[key]),
+          itemStyle: { color }, ...BAR_WIDE,
+        });
 
-    const ghostSubSeries = SUBS.map((s) => ({
-      name: s,
-      type: "line",
-      xAxisIndex: 0, yAxisIndex: 0,
-      data: arr(len, null),
-      silent: true, showSymbol: false, hoverAnimation: false,
-      lineStyle: { width: 0, opacity: 0 },
-      itemStyle: { color: COLORS[s] as string },
-      tooltip: { show: false },
-    }));
+        seriesRev.push({
+          name: `Rev ${sub}·${tipo}`,
+          type: "bar", xAxisIndex: 3, yAxisIndex: 3,
+          stack: `rev-${sub}`, data: S(revByCombo[key]),
+          itemStyle: { color }, ...BAR_WIDE,
+        });
+      });
+    } else {
+      SUBS.forEach((s) => {
+        seriesMtm.push({
+          name: `MtM · Sub ${s}`,
+          type: "bar", xAxisIndex: 1, yAxisIndex: 1,
+          stack: "mtm-sub", data: S(mtmBySub[s]),
+          itemStyle: { color: COLORS[s] as string }, ...BAR_WIDE,
+        });
+        seriesVol.push({
+          name: `Vol · Sub ${s}`,
+          type: "bar", xAxisIndex: 2, yAxisIndex: 2,
+          stack: "vol-sub", data: S(volBySub[s]),
+          itemStyle: { color: COLORS[s] as string }, ...BAR_WIDE,
+        });
+        seriesRev.push({
+          name: `Rev · Sub ${s}`,
+          type: "bar", xAxisIndex: 3, yAxisIndex: 3,
+          stack: "rev-sub", data: S(revBySub[s]),
+          itemStyle: { color: COLORS[s] as string }, ...BAR_WIDE,
+        });
+      });
+    }
 
-    const ghostTipoSeries = tipos.map((t, i) => ({
-      name: t,
-      type: "line",
-      xAxisIndex: 0, yAxisIndex: 0,
-      data: arr(len, null),
-      silent: true, showSymbol: false, hoverAnimation: false,
-      lineStyle: { width: 0, opacity: 0 },
-      itemStyle: { color: tint(COLORS.total, i) },
-      tooltip: { show: false },
-    }));
-
-    const seriesRevTipoOnly = tipos.map((t, i) => ({
-      name: `Rev · ${t}`, type: "bar", xAxisIndex: 0, yAxisIndex: 0,
-      stack: "rev-tipo", barCategoryGap: "50%", barGap: "-100%",
-      data: S(revByTipo[t]), itemStyle: { color: tint(COLORS.total, i) }
-    }));
-    const seriesMtmTipoOnly = tipos.map((t, i) => ({
-      name: `MtM · ${t}`, type: "bar", xAxisIndex: 1, yAxisIndex: 1,
-      stack: "mtm-tipo", barCategoryGap: "50%", barGap: "-100%",
-      data: S(mtmByTipo[t]), itemStyle: { color: tint(COLORS.total, i) }
-    }));
-    const seriesVolTipoOnly = tipos.map((t, i) => ({
-      name: `Vol · ${t}`, type: "bar", xAxisIndex: 2, yAxisIndex: 2,
-      stack: "vol-tipo", barCategoryGap: "50%", barGap: "-100%",
-      data: S(volByTipo[t]), itemStyle: { color: tint(COLORS.total, i) }
-    }));
-
-    const combosLegendData = [
-      ...combos.map(k => {
-        const [sub, tipo] = k.split("|") as [Sub, string];
-        return `Rev ${sub}·${tipo}`;
-      }),
-      ...combos.map(k => {
-        const [sub, tipo] = k.split("|") as [Sub, string];
-        return `MtM ${sub}·${tipo}`;
-      }),
-      ...combos.map(k => {
-        const [sub, tipo] = k.split("|") as [Sub, string];
-        return `Vol ${sub}·${tipo}`;
-      }),
+    // Séries agregadas (sempre visíveis)
+    const seriesAgg = [
+      { name: "Total", type: "bar", xAxisIndex: 1, yAxisIndex: 1,
+        data: mtmTOTAL, itemStyle: { color: COLORS.total }, ...BAR_WIDE_AGG },
+      { name: "Total", type: "bar", xAxisIndex: 2, yAxisIndex: 2,
+        data: volumeTOTAL, itemStyle: { color: COLORS.total }, ...BAR_WIDE_AGG },
+      { name: "Vendido",  type: "bar", xAxisIndex: 2, yAxisIndex: 2,
+        stack: "vol-vs", data: volVendido, ...BAR_WIDE_AGG },
+      { name: "Comprado", type: "bar", xAxisIndex: 2, yAxisIndex: 2,
+        stack: "vol-vs", data: volComprado, ...BAR_WIDE_AGG },
+      { name: "Net",      type: "line",xAxisIndex: 2, yAxisIndex: 2, data: volNetTOTAL, smooth:false, showSymbol:false, z:4 },
+      { name: "Total", type: "bar", xAxisIndex: 3, yAxisIndex: 3,
+        data: revenueTOTAL, itemStyle: { color: COLORS.total }, ...BAR_WIDE_AGG },
+      { name: "Faturamento", type: "bar", xAxisIndex: 3, yAxisIndex: 3, stack: "rev-fc", data: revReceita, ...BAR_WIDE_AGG },
+      { name: "Custo",       type: "bar", xAxisIndex: 3, yAxisIndex: 3, stack: "rev-fc", data: revCusto, ...BAR_WIDE_AGG },
+      { name: "Net", type: "line", xAxisIndex: 3, yAxisIndex: 3, data: revNet, smooth: false, showSymbol: false, z: 4 },
     ];
 
-    const comboSelectedInit = Object.fromEntries(
-      combosLegendData.map((name) => [name, false])
-    ) as Record<string, boolean>;
+    // legenda do topo
+    const legendPriceData = priceKeys;
 
     return {
-      color: [COLORS.total, COLORS.SE, COLORS.SU, COLORS.NO, COLORS.NE, COLORS.fpcSE, COLORS.fpcSU, COLORS.fpcNO, COLORS.fpcNE],
+      color: [COLORS.total, COLORS.SE, COLORS.SU, COLORS.NO, COLORS.NE],
       textStyle: { fontFamily: "Inter, Roboto, Arial, sans-serif" },
 
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "cross" },
         extraCssText:
-          "max-width: 520px; max-height: 520px; overflow:auto; padding:8px 10px; box-shadow:0 6px 24px rgba(0,0,0,.12);",
-
+          "max-width: 640px; max-height: 560px; overflow:auto; padding:8px 10px; box-shadow:0 6px 24px rgba(0,0,0,.12);",
         formatter: (params: any[]) => {
           if (!params?.length) return "";
 
-          const header = `<div style="margin-bottom:6px;font-weight:700">${params[0].axisValueLabel ?? ""}</div>`;
+          const header =
+            `<div style="margin-bottom:6px;font-weight:700">${params[0].axisValueLabel ?? ""}</div>`;
 
-          const fmt = (p: any) =>
-            p.axisIndex === 2 ? fmtVol(+p.data)
-            : p.axisIndex === 3 ? fmtPrice(+p.data)
-            : fmtBRLFull(+p.data);
+          const fmt = (ai:number, v:number) =>
+            ai === 0 ? fmtPrice(+v)
+            : ai === 2 ? fmtVol(+v)
+            : fmtBRLFull(+v);
 
           const dot = (c: string) =>
             `<span style="display:inline-block;width:10px;height:10px;background:${Array.isArray(c)?c[0]:c};border-radius:50%;margin-right:6px;"></span>`;
 
-          const row = (p: any, name?: string) => {
-            const isZero = +p.data === 0;
-            if (isZero) return "";
-            return `<div style="display:flex;justify-content:space-between;gap:12px;line-height:1.2;margin:2px 0;${isZero ? "opacity:.55" : ""}">
-              <div>${dot(p.color)}${name ?? p.seriesName}</div>
-              <div style="text-align:right;min-width:92px">${fmt(p)}</div>
+          const row = (p: any, label: string) => {
+            if (p?.data == null) return "";
+            return `<div style="display:flex;justify-content:space-between;gap:12px;line-height:1.2;margin:2px 0;">
+              <div>${dot(p.color)}${label}</div>
+              <div style="text-align:right;min-width:92px">${fmt(p.axisIndex, +p.data)}</div>
             </div>`;
           };
 
-          const gTitle = (txt: string) =>
+          const sectionTitle = (txt: string) =>
             `<div style="margin:8px 0 4px;font-weight:600;opacity:.85">${txt}</div>`;
 
-          type Buckets = { agg:any[]; sub:any[]; tipoEnergia:any[]; tipo2:any[]; subtipo:any[]; combo:any[]; fpc:any[] };
-          const mkBuckets = (): Buckets => ({ agg:[], sub:[], tipoEnergia:[], tipo2:[], subtipo:[], combo:[], fpc:[] });
-          const panels: Record<number, Buckets> = { 0: mkBuckets(), 1: mkBuckets(), 2: mkBuckets(), 3: mkBuckets() };
+          // Agrupa itens por eixo
+          const byAxis: Record<number, any[]> = { 0:[],1:[],2:[],3:[] };
+          params.forEach((p:any)=>{ if(p?.data!=null) byAxis[p.axisIndex].push(p); });
 
-          // classifica cada série
-          params.forEach((p: any) => {
-            if (p?.data == null) return;
-            const ai = p.axisIndex;
-            const s  = String(p.seriesName ?? "");
+          // ---- helpers p/ ordenar por SUB e tipo
+          const orderSubs = (a:Sub,b:Sub) => SUBS.indexOf(a) - SUBS.indexOf(b);
+          const orderTipos = (a:string,b:string) => {
+            const ia = tiposAll.indexOf(a), ib = tiposAll.indexOf(b);
+            if (ia === -1 && ib === -1) return a.localeCompare(b);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+          };
 
-            if (ai === 3 && /^FPC /.test(s)) { panels[3].fpc.push(p); return; }
-            if (/^(Total|Faturamento|Custo|Net)$/.test(s)) { panels[ai].agg.push(p); return; }
-            if (/· Sub /.test(s))                           { panels[ai].sub.push(p); return; }
-            if (/^((Rev|MtM|Vol) · )/.test(s)) {
-              if (/· Subtipo /.test(s)) panels[ai].subtipo.push(p);
-              else if (/· Tipo /.test(s)) panels[ai].tipo2.push(p);
-              else panels[ai].tipoEnergia.push(p);
-              return;
+          // === Painel 0: PRICE => SUB ▸ TIPO (preço / compra / venda)
+          const priceHTML = (() => {
+            const list = byAxis[0];
+            if (!list.length) return "";
+
+            // sub -> tipo -> {price?, buy?, sell?}
+            const bucket: Record<Sub, Record<string, { p?: any; buy?: any; sell?: any }>> = {
+              SE:{}, SU:{}, NO:{}, NE:{},
+            } as any;
+
+            list.forEach((p:any) => {
+              const name = String(p.seriesName || ""); // "SE CON"
+              const [subStr, ...tipoRest] = name.split(" ");
+              const sub = subStr as Sub;
+              const tipo = (tipoRest.join(" ") || "").toUpperCase().trim();
+              if (!SUBS.includes(sub) || !tipo) return;
+              const id = String(p.seriesId || "");
+              const kind = id.endsWith("|buy") ? "buy" : id.endsWith("|sell") ? "sell" : "p";
+              bucket[sub][tipo] = bucket[sub][tipo] || {};
+              (bucket[sub][tipo] as any)[kind] = p;
+            });
+
+            const parts: string[] = [];
+            (["Price"] as const).forEach(title => parts.push(sectionTitle(title)));
+
+            SUBS.sort(orderSubs as any).forEach((sub) => {
+              const tipos = Object.keys(bucket[sub] || {});
+              if (!tipos.length) return;
+              parts.push(`<div style="margin:6px 0 2px;font-weight:600">${sub}</div>`);
+              tipos.sort(orderTipos).forEach((tp) => {
+                const grp = bucket[sub][tp];
+                if (!grp) return;
+                if (grp.p)   parts.push(row(grp.p,   `${sub} ▸ ${tp} `));
+                if (grp.buy) parts.push(row(grp.buy, `${sub} ▸ ${tp} · compra média`));
+                if (grp.sell)parts.push(row(grp.sell,`${sub} ▸ ${tp} · venda média`));
+              });
+            });
+
+            return parts.join("");
+          })();
+
+          const panelHTML = (ai:number, title:string) => {
+            const list = byAxis[ai];
+            if (!list.length) return "";
+
+            // Separa agregados
+            const aggs: any[] = [];
+            const items: Array<{sub:Sub, tipo?:string, p:any}> = [];
+
+            list.forEach((p:any) => {
+              const name = String(p.seriesName || "");
+              // "MtM SE·CON" / "Vol SU·I5" / "Rev NO·CON"  (modo por par)
+              let m = name.match(/^(MtM|Vol|Rev)\s+([A-Z]{2})·(.+)$/);
+              if (m) {
+                const sub = m[2] as Sub;
+                const tipo = (m[3] || "").toUpperCase().trim();
+                if (SUBS.includes(sub) && tipo) items.push({ sub, tipo, p });
+                return;
+              }
+              // "MtM · Sub SE" (fallback por SUB)
+              m = name.match(/^(MtM|Vol|Rev)\s+·\s+Sub\s+([A-Z]{2})$/);
+              if (m) {
+                const sub = m[2] as Sub;
+                if (SUBS.includes(sub)) items.push({ sub, p });
+                return;
+              }
+              // Agregados (Total, Vendido, Comprado, Net)
+              aggs.push(p);
+            });
+
+            // Monta SUB → [tipos] (ou sem tipo)
+            const bucket: Record<Sub, Record<string, any> | { __sub__?: any[] }> = { SE:{}, SU:{}, NO:{}, NE:{} } as any;
+            items.forEach(({sub, tipo, p}) => {
+              if (!tipo) {
+                (bucket[sub] as any).__sub__ = (bucket[sub] as any).__sub__ || [];
+                (bucket[sub] as any).__sub__.push(p);
+              } else {
+                (bucket[sub] as any)[tipo] = p;
+              }
+            });
+
+            const parts: string[] = [];
+            parts.push(sectionTitle(title));
+
+            SUBS.sort(orderSubs as any).forEach((sub) => {
+              const b = bucket[sub];
+              const tipos = Object.keys(b || {}).filter(k => k !== "__sub__");
+              const hasSubOnly = (b as any).__sub__?.length;
+
+              if (!tipos.length && !hasSubOnly) return;
+
+              parts.push(`<div style="margin:6px 0 2px;font-weight:600">${sub}</div>`);
+
+              if (tipos.length) {
+                tipos.sort(orderTipos).forEach(tp => {
+                  const p = (b as any)[tp];
+                  if (p) parts.push(row(p, `${sub} ▸ ${tp}`));
+                });
+              } else if (hasSubOnly) {
+                (b as any).__sub__.forEach((p:any) => parts.push(row(p, `Sub ${sub}`)));
+              }
+            });
+
+            if (aggs.length) {
+              parts.push(sectionTitle("Agregados"));
+              aggs.forEach((p:any) => parts.push(row(p, p.seriesName)));
             }
-            if (/^(Rev|MtM|Vol) (SE|SU|NO|NE)·/.test(s))    { panels[ai].combo.push(p); return; }
-          });
 
-          // helper para montar "Sub × Tipo" agrupado por SUB
-          const buildComboBySub = (combo: any[]) => {
-            if (!combo.length) return "";
-            const groups: Record<Sub, Array<{ p:any; tipo:string }>> =
-              { SE:[], SU:[], NO:[], NE:[] };
-
-            combo.forEach((p) => {
-              const m = String(p.seriesName).match(/^(Rev|MtM|Vol) (SE|SU|NO|NE)·(.+)$/);
-              if (!m) return;
-              const sub = m[2] as Sub;
-              const tipo = m[3];
-              groups[sub].push({ p, tipo });
-            });
-
-            const parts: string[] = [gTitle("Sub × Tipo")];
-            SUBS.forEach((sub) => {
-              const arr = groups[sub];
-              if (!arr || !arr.length) return;
-              arr.sort((a,b) => a.tipo.localeCompare(b.tipo));
-              parts.push(`<div style="font-weight:600;opacity:.8;margin-top:4px">${sub}</div>`);
-              arr.forEach(({p, tipo}) => parts.push(row(p, tipo))); // mostra só o tipo ("CON", "I5", ...)
-            });
             return parts.join("");
           };
 
-          const buildPanel = (b: Buckets) => {
-            const parts: string[] = [];
-            if (b.agg.length)         parts.push(gTitle("Agregados"), ...b.agg.map((p)=>row(p)));
-            // mantém outras seções caso ativas:
-            // if (b.sub.length)      parts.push(gTitle("Por Submercado"), ...b.sub.map((p)=>row(p)));
-            // if (b.tipoEnergia.length) parts.push(gTitle("Por Tipo de Energia"), ...b.tipoEnergia.map((p)=>row(p)));
-            // if (b.tipo2.length)    parts.push(gTitle("Por Tipo"), ...b.tipo2.map((p)=>row(p)));
-            // if (b.subtipo.length)  parts.push(gTitle("Por Subtipo"), ...b.subtipo.map((p)=>row(p)));
-            // substitui lista simples de combos por agrupado:
-            parts.push(buildComboBySub(b.combo));
-            return parts.length
-              ? `<div style="margin-top:6px">${parts.join("")}</div>`
-              : "";
-          };
-
-          const out = [
-            header,
-            buildPanel(panels[0]),
-            buildPanel(panels[1]),
-            buildPanel(panels[2]),
-            (panels[3].fpc.length
-              ? `<div style="margin-top:6px"><div style="font-weight:700;margin-bottom:2px">Fwd Price</div>${
-                  panels[3].fpc.map((p:any)=>row(p, p.seriesName.replace(/^FPC /,""))).join("")
-                }</div>`
-              : "")
-          ].join("");
+          const out =
+            header +
+            priceHTML +
+            panelHTML(1, "MtM") +
+            panelHTML(2, "Volume") +
+            panelHTML(3, "Revenue");
 
           return out;
         }
-
       },
 
       grid: [
-        { top: 132, left: 0, right: 0, height: 112, containLabel: true },
-        { top: 292, left: 0, right: 0, height: 112, containLabel: true },
-        { top: 452, left: 0, right: 0, height: 112, containLabel: true },
-        { top: 632, left: 5, right: 0, bottom: GRID4_BOTTOM, containLabel: true }
+        { top:136, left:LEFT_PAD, right:20, height:112, containLabel:false }, // price
+        { top:296, left:LEFT_PAD, right:20, height:128, containLabel:false }, // mtm
+        { top:456, left:LEFT_PAD, right:20, height:128, containLabel:false }, // volume
+        { top:616, left:LEFT_PAD, right:20, height: 96, bottom: GRID4_BOTTOM, containLabel:false }, // revenue
       ],
 
       legend: [
-        // (1) Tipo de ENERGIA (tp_tipo_energia) — subiu pra top: 8
-        { id: "legend-tipo", top: 8, left: "center", orient: "horizontal",
+        { id: "legend-price", top: 8, left: "center", orient: "horizontal",
           itemGap: 12, itemWidth: 22, itemHeight: 12, icon: "roundRect",
-          data: tipos, selected: Object.fromEntries(tipos.map(t => [t, false])),
-          textStyle: { fontSize: 12 } },
-
-        // (2) SUBMERCADOS — subiu pra top: 32
-        { id: "legend-sub", top: 32, left: "center", orient: "horizontal",
-          itemGap: 12, itemWidth: 22, itemHeight: 12, icon: "roundRect",
-          data: SUBS, selected: { SE:false, SU:false, NO:false, NE:false },
-          textStyle: { fontSize: 12 } },
-
-        // (3) TIPO (tp_tipo) — subiu pra top: 56
-        { id: "legend-tipo2", top: 56, left: "center", orient: "horizontal",
-          itemGap: 12, itemWidth: 22, itemHeight: 12, icon: "roundRect",
-          data: tipos2, selected: Object.fromEntries(tipos2.map(t => [t, false])),
-          textStyle: { fontSize: 12 } },
-
-        // (4) SUBTIPO (tp_subtipo) — subiu pra top: 80
-        { id: "legend-subtipo", top: 80, left: "center", orient: "horizontal",
-          itemGap: 12, itemWidth: 22, itemHeight: 12, icon: "roundRect",
-          data: subtipos, selected: Object.fromEntries(subtipos.map(t => [t, false])),
-          textStyle: { fontSize: 12 } },
-
-        // FPC (permanece)
-        { id: "legend-fpc", top: 584, left: "center", itemGap: 18,
-          data: ["FPC SE", "FPC SU", "FPC NO", "FPC NE"], textStyle: { fontSize: 12 } },
-
-        // ocultas (inalteradas)
-        { id: "legend-sub-only", show: false, data: [
-            "Rev · Sub SE","Rev · Sub SU","Rev · Sub NO","Rev · Sub NE",
-            "MtM · Sub SE","MtM · Sub SU","MtM · Sub NO","MtM · Sub NE",
-            "Vol · Sub SE","Vol · Sub SU","Vol · Sub NO","Vol · Sub NE",
-          ],
-          selected: {
-            "Rev · Sub SE":false, "Rev · Sub SU":false, "Rev · Sub NO":false, "Rev · Sub NE":false,
-            "MtM · Sub SE":false, "MtM · Sub SU":false, "MtM · Sub NO":false, "MtM · Sub NE":false,
-            "Vol · Sub SE":false, "Vol · Sub SU":false, "Vol · Sub NO":false, "Vol · Sub NE":false,
-          }
-        },
-        { id: "legend-combos", show: false, data: combosLegendData, selected: comboSelectedInit },
-        { id: "legend-type-only", show: false,
-          data: [
-            ...tipos.map(t => `Rev · ${t}`),
-            ...tipos.map(t => `MtM · ${t}`),
-            ...tipos.map(t => `Vol · ${t}`),
-          ],
-          selected: Object.fromEntries([
-            ...tipos.map(t => [`Rev · ${t}`, false]),
-            ...tipos.map(t => [`MtM · ${t}`, false]),
-            ...tipos.map(t => [`Vol · ${t}`, false]),
-          ])
-        },
-        { id: "legend-tipo2-only", show: false,
-          data: [
-            ...tipos2.map(t => `Rev · Tipo ${t}`),
-            ...tipos2.map(t => `MtM · Tipo ${t}`),
-            ...tipos2.map(t => `Vol · Tipo ${t}`),
-          ],
-          selected: Object.fromEntries([
-            ...tipos2.map(t => [`Rev · Tipo ${t}`, false]),
-            ...tipos2.map(t => [`MtM · Tipo ${t}`, false]),
-            ...tipos2.map(t => [`Vol · Tipo ${t}`, false]),
-          ])
-        },
-        { id: "legend-subtipo-only", show: false,
-          data: [
-            ...subtipos.map(t => `Rev · Subtipo ${t}`),
-            ...subtipos.map(t => `MtM · Subtipo ${t}`),
-            ...subtipos.map(t => `Vol · Subtipo ${t}`),
-          ],
-          selected: Object.fromEntries([
-            ...subtipos.map(t => [`Rev · Subtipo ${t}`, false]),
-            ...subtipos.map(t => [`MtM · Subtipo ${t}`, false]),
-            ...subtipos.map(t => [`Vol · Subtipo ${t}`, false]),
-          ])
-        },
+          data: legendPriceData, selected: legendSel, textStyle: { fontSize: 12 } },
       ],
 
       xAxis: [0,1,2,3].map((i) => ({
         type: "category",
         gridIndex: i,
         data: categories,
-        boundaryGap: i !== 3,
+        boundaryGap: i !== 0,
         axisTick: { show: i === 3 },
         axisLabel: i === 3 ? { margin: 10 } : { show: false },
       })),
 
       yAxis: [
-        { type: "value", gridIndex: 0, name: "Revenue (BRL)",      axisLabel: { formatter: (v: number) => fmtBRLShort(v) } },
-        { type: "value", gridIndex: 1, name: "MtM (BRL)",          axisLabel: { formatter: (v: number) => fmtBRLShort(v) } },
-        { type: "value", gridIndex: 2, name: "Volume (MWm)",       axisLabel: { formatter: (v: number) => v.toLocaleString("pt-BR") } },
-        { type: "value", gridIndex: 3, name: "Fwd Price (BRL/MWh)",axisLabel: { formatter: (v: number) => fmtPrice(v) } },
+        { type: "value", gridIndex: 0, name: "Price (BRL/MWh)",
+          axisLabel: { formatter: (v:number) => v.toLocaleString("pt-BR"), width: Y_LABEL_W, align: "right", overflow: "truncate", margin: 6 } },
+        { type: "value", gridIndex: 1, name: "MtM (BRL)", scale: true, splitNumber: 5,
+          axisLabel: { formatter: (v:number) => fmtBRLShort(v), width: Y_LABEL_W, align: "right", overflow: "truncate", margin: 6 } },
+        { type: "value", gridIndex: 2, name: "Volume (MWm)", scale: true, splitNumber: 5,
+          axisLabel: { formatter: (v:number) => v.toLocaleString("pt-BR"), width: Y_LABEL_W, align: "right", overflow: "truncate", margin: 6 } },
+        { type: "value", gridIndex: 3, name: "Revenue (BRL)", scale: true, splitNumber: 5,
+          axisLabel: { formatter: (v:number) => fmtBRLShort(v), width: Y_LABEL_W, align: "right", overflow: "truncate", margin: 6 } },
       ],
-      toolbox: {
-        show: true, left: 0, bottom: 27, itemSize: TOOLBOX_ICON, z: 20,
-        iconStyle: { borderColor: "#6b7280" }, emphasis: { iconStyle: { borderColor: "#111827" } },
-        feature: { restore: { title: "Redefinir zoom" } },
-      },
 
       dataZoom: [
-        { type: "slider", xAxisIndex: [0,1,2,3], left: 40, bottom: SLIDER_BOTTOM, height: SLIDER_HEIGHT,
-          filterMode: "filter", handleSize: 18, brushSelect: false, z: 15 },
-        { type: "inside", xAxisIndex: [0,1,2,3], filterMode: "filter" },
+        { type:"slider", xAxisIndex:[0,1,2,3], left:LEFT_PAD, right:20, bottom: 5, height: SLIDER_HEIGHT,
+          filterMode:"filter", handleSize:18, brushSelect:false, z:15 },
+        { type:"inside", xAxisIndex:[0,1,2,3], filterMode:"filter" },
       ],
+
+      toolbox: {
+        show:true, left: 5, bottom: -8, itemSize: TOOLBOX_ICON, z:20,
+        iconStyle:{ borderColor:"#6b7280" }, emphasis:{ iconStyle:{ borderColor:"#111827" } },
+        feature:{ restore:{ title:"Redefinir zoom" } },
+      },
+
       series: [
-        ...ghostSubSeries,
-        ...ghostTipoSeries,
-        ...ghostTipo2Series,
-        ...ghostSubtipoSeries,
+        // PRICE
+        ...seriesPrice,
 
-        { name: "Total", type: "bar", xAxisIndex: 0, yAxisIndex: 0,
-          barCategoryGap: "50%", barGap: "50%", data: revenueTOTAL, itemStyle: { color: COLORS.total } },
-        { name: "Faturamento", type: "bar", xAxisIndex: 0, yAxisIndex: 0, stack: "rev-fc",
-          barCategoryGap: "50%", barGap: "50%", data: revFaturamento },
-        { name: "Custo", type: "bar", xAxisIndex: 0, yAxisIndex: 0, stack: "rev-fc",
-          barCategoryGap: "50%", barGap: "50%", data: revCusto },
-        { name: "Net", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: revNet,
-          smooth: false, showSymbol: false, z: 4 },
+        // MTM
+        ...seriesMtm,
 
-        ...seriesRevSubOnly,
-        ...seriesMtmSubOnly,
-        ...seriesVolSubOnly,
+        // VOLUME (selecionados) + agregados
+        ...seriesVol,
+        ...seriesAgg.slice(1, 5), // Total, Vendido, Comprado, Net
 
-        ...seriesRevCombo,
-        ...seriesRevTipoOnly, 
-        ...seriesRevTipo2Only,
-        ...seriesRevSubtipoOnly,
+        // REVENUE (selecionados) + agregados
+        ...seriesRev,
+        ...seriesAgg.slice(5),
 
-        // MtM
-        { name: "Total", type: "bar", xAxisIndex: 1, yAxisIndex: 1,
-          barCategoryGap: "30%", barGap: "10%", data: mtmTOTAL, itemStyle: { color: COLORS.total } },
-        ...seriesMtmCombo,
-        ...seriesMtmTipoOnly,
-        ...seriesMtmTipo2Only,
-        ...seriesMtmSubtipoOnly,
-
-        // Volume
-        { name: "Total", type: "bar", xAxisIndex: 2, yAxisIndex: 2,
-          barCategoryGap: "30%", barGap: "10%", data: volumeTOTAL, itemStyle: { color: COLORS.total } },
-        // NOVAS séries agregadas do Volume:
-        { name: "Faturamento", type: "bar", xAxisIndex: 2, yAxisIndex: 2, stack: "vol-fc", data: volSellTOTAL },
-        { name: "Custo",       type: "bar", xAxisIndex: 2, yAxisIndex: 2, stack: "vol-fc", data: volBuyTOTAL },
-        { name: "Net",         type: "line",xAxisIndex: 2, yAxisIndex: 2, data: volNetTOTAL, smooth:false, showSymbol:false, z:4 },
-        ...seriesVolCombo,
-        ...seriesVolTipoOnly,
-        ...seriesVolTipo2Only,
-        ...seriesVolSubtipoOnly,
-
-        // FPC (inalterado)
-        { name: "FPC SE", type: "line", xAxisIndex: 3, yAxisIndex: 3, data: S(priceBySub.SE), smooth:false, showSymbol:false, connectNulls:true, z:3 },
-        { name: "FPC SU", type: "line", xAxisIndex: 3, yAxisIndex: 3, data: S(priceBySub.SU), smooth:false, showSymbol:false, connectNulls:true, z:3 },
-        { name: "FPC NO", type: "line", xAxisIndex: 3, yAxisIndex: 3, data: S(priceBySub.NO), smooth:false, showSymbol:false, connectNulls:true, z:3 },
-        { name: "FPC NE", type: "line", xAxisIndex: 3, yAxisIndex: 3, data: S(priceBySub.NE), smooth:false, showSymbol:false, connectNulls:true, z:3 },
+        // MTM Total (primeiro do bloco)
+        seriesAgg[0],
       ],
       animationDuration: 220,
     };
   }, [
-      len, categories, combos, tipos, tipos2, subtipos,
-      revenueTOTAL, mtmTOTAL, volumeTOTAL,
-      revFaturamento, revCusto, revNet,
-      // ⬇️ importantes para Sub × Tipo
-      revByCombo, mtmByCombo, volByCombo,
-      // se quiser garantir tudo atualizando:
-      revByTipo, mtmByTipo, volByTipo,
-      revByTipo2, mtmByTipo2, volByTipo2,
-      revBySubtipo, mtmBySubtipo, volBySubtipo,
-      revBySub, mtmBySub, volBySub,
-      volSellTOTAL, volBuyTOTAL, volNetTOTAL,
-      priceBySub
+    len, categories,
+    priceKeys, priceMain, priceBuyAvg, priceSellAvg,
+    revenueTOTAL, mtmTOTAL, volumeTOTAL,
+    revReceita, revCusto, revNet,
+    volVendido, volComprado, volNetTOTAL,
+    revBySub, mtmBySub, volBySub,
+    tiposAll, combos, revByCombo, mtmByCombo, volByCombo,
+    legendSel, selectedPairs,
   ]);
 
   const onChartReady = (chart: any) => { chartRef.current = chart; };
 
   const onEvents = {
     legendselectchanged: (ev: any) => {
-      const chart = chartRef.current; if (!chart) return;
-
-      if (ev?.legendId === "legend-fpc") return;
-
-      const name = ev?.name as string;
-      const byName = (arr: string[]) => arr.includes(name);
-      const selected = (k: string) => ev?.selected?.[k];
-
-      const applySel = (
-        keys: string[],
-        ref: React.MutableRefObject<Record<string, boolean>>,
-        legendId?: string
-      ) => {
-        if (ev?.legendId === legendId) {
-          keys.forEach(k => {
-            if (ev?.selected?.hasOwnProperty(k)) ref.current[k] = !!ev.selected[k];
-          });
-        } else if (!ev?.legendId && byName(keys)) {
-          ref.current[name] = selected(name) ?? !ref.current[name];
-        }
-      };
-
-      applySel(SUBS as unknown as string[], selectedSubRef as any, "legend-sub");
-      applySel(tipos,                       selectedTipoRef,     "legend-tipo");
-      applySel(tipos2,                      selectedTipo2Ref,    "legend-tipo2");
-      applySel(subtipos,                    selectedSubtipoRef,  "legend-subtipo");
-
-      const subsOn    = SUBS.filter(s => selectedSubRef.current[s]);
-      const energiaOn = tipos.filter(t => selectedTipoRef.current[t]);
-      const tipo2On   = Object.keys(selectedTipo2Ref.current).filter(t => selectedTipo2Ref.current[t]);
-      const subtipoOn = Object.keys(selectedSubtipoRef.current).filter(t => selectedSubtipoRef.current[t]);
-
-      const showCombos = energiaOn.length > 0 && subsOn.length > 0 && tipo2On.length === 0 && subtipoOn.length === 0;
-      SUBS.forEach((sub) => {
-        tipos.forEach((tipo) => {
-          const on = showCombos && subsOn.includes(sub) && energiaOn.includes(tipo);
-          ["Rev","MtM","Vol"].forEach((pref) => {
-            chart.dispatchAction({
-              type: on ? "legendSelect" : "legendUnSelect",
-              name: `${pref} ${sub}·${tipo}`,
-              legendId: "legend-combos",
-            } as any);
-          });
-        });
-      });
-
-      const showEnergiaOnly = energiaOn.length > 0 && subsOn.length === 0 && tipo2On.length === 0 && subtipoOn.length === 0;
-      tipos.forEach((tipo) => {
-        ["Rev","MtM","Vol"].forEach((pref) => {
-          chart.dispatchAction({
-            type: showEnergiaOnly && energiaOn.includes(tipo) ? "legendSelect" : "legendUnSelect",
-            name: `${pref} · ${tipo}`,
-            legendId: "legend-type-only",
-          } as any);
-        });
-      });
-
-      const showTipo2Only = tipo2On.length > 0 && subsOn.length === 0 && energiaOn.length === 0 && subtipoOn.length === 0;
-      tipos2.forEach((t) => {
-        ["Rev","MtM","Vol"].forEach((pref) => {
-          chart.dispatchAction({
-            type: showTipo2Only && tipo2On.includes(t) ? "legendSelect" : "legendUnSelect",
-            name: `${pref} · Tipo ${t}`,
-            legendId: "legend-tipo2-only",
-          } as any);
-        });
-      });
-
-      const showSubOnly = subsOn.length > 0 && energiaOn.length === 0 && tipo2On.length === 0 && subtipoOn.length === 0;
-      (["SE","SU","NO","NE"] as Sub[]).forEach((s) => {
-        ["Rev","MtM","Vol"].forEach((pref) => {
-          chart.dispatchAction({
-            type: showSubOnly && subsOn.includes(s) ? "legendSelect" : "legendUnSelect",
-            name: `${pref} · Sub ${s}`,
-            legendId: "legend-sub-only",
-          } as any);
-        });
-      });
-
-      const showSubtipoOnly = subtipoOn.length > 0 && subsOn.length === 0 && energiaOn.length === 0 && tipo2On.length === 0;
-      subtipos.forEach((st) => {
-        ["Rev","MtM","Vol"].forEach((pref) => {
-          chart.dispatchAction({
-            type: showSubtipoOnly && subtipoOn.includes(st) ? "legendSelect" : "legendUnSelect",
-            name: `${pref} · Subtipo ${st}`,
-            legendId: "legend-subtipo-only",
-          } as any);
-        });
-      });
+      if (ev && ev.selected) setLegendSel(ev.selected as Record<string, boolean>);
     },
   };
 
   return (
     <div style={{
       width: "100%",
-      height: '90vh',
+      height: '100vh',
       padding: 20,
       boxSizing: "border-box",
       border: "1px solid var(--mui-palette-divider, #e5e7eb)",
@@ -868,11 +890,11 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     }}>
       <ReactECharts
         option={option}
-        style={{ width: "100%", height: '90vh' }}
+        style={{ width: "100%", height }}
         onChartReady={onChartReady}
         onEvents={onEvents}
-        notMerge={false}
-        lazyUpdate
+        notMerge={true}
+        lazyUpdate={false}
       />
     </div>
   );
