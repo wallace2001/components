@@ -121,7 +121,7 @@ const fmtBRLShort = (v: number) => {
   return `${sign}${fmtBRLFull(a)}`;
 };
 const fmtPrice = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtVol   = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} MWm`;
+const fmtVol   = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
 
 // Paleta base: bem separada em hue
 const COLORS = {
@@ -161,6 +161,15 @@ function rgbToHsl(r:number, g:number, b:number) {
   }
   return { h, s: s*100, l: l*100 };
 }
+
+const fmtMoneyShortNoSym = (v: number) => {
+  const sign = v < 0 ? "-" : "";
+  const a = Math.abs(v);
+  if (a >= 1e12) return `${sign}${(a / 1e12).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} tri`;
+  if (a >= 1e9)  return `${sign}${(a / 1e9 ).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} bi`;
+  if (a >= 1e6)  return `${sign}${(a / 1e6 ).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  return `${sign}${a.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+};
 
 // {h,s,l} -> {r,g,b}
 function hslToRgb(h:number, s:number, l:number) {
@@ -715,7 +724,7 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
           const fmt = (ai:number, v:number) =>
             ai === 0 ? fmtPrice(+v)
             : ai === 2 ? fmtVol(+v)
-            : fmtBRLFull(+v);
+            : fmtPrice(+v);
 
 
           const marker = (p:any) => {
@@ -788,7 +797,7 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
             });
 
             const parts: string[] = [];
-            (["Price"] as const).forEach(title => parts.push(sectionTitle(title)));
+            (["Price (BRL)"] as const).forEach(title => parts.push(sectionTitle(title)));
 
             SUBS.sort(orderSubs as any).forEach((sub) => {
               const tipos = Object.keys(bucket[sub] || {});
@@ -879,9 +888,9 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
           const out =
             header +
             priceHTML +
-            panelHTML(1, "MtM") +
-            panelHTML(2, "Volume") +
-            panelHTML(3, "Revenue");
+            panelHTML(1, "MtM (BRL)") +
+            panelHTML(2, "Volume MWm") +
+            panelHTML(3, "Revenue (BRL)");
 
           return out;
         }
