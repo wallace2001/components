@@ -128,26 +128,89 @@ const fmtBRLShort = (v: number) => {
 const fmtPrice = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtVol   = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} MWm`;
 
+// Paleta base: bem separada em hue
 const COLORS = {
-  total: "#1f4e6b",
-  SE: "#e76f51",
-  SU: "#FF6666",
-  NO: "#00bb60",
-  NE: "#1d4d39ff",
+  total: "#1f4e6b", // mantém
+  SE: "#ea580c",    // orange-600
+  SU: "#7c3aed",    // violet-600  (bem diferente do SE)
+  NO: "#16a34a",    // green-600
+  NE: "#0e7490",    // cyan-700 / teal
 };
 
-function tint(base: string, idx: number) {
-  const n = base.replace("#", "");
-  const num = parseInt(n, 16);
-  const r0 = (num >> 16) & 0xff, g0 = (num >> 8) & 0xff, b0 = num & 0xff;
-  const f = Math.min(0.65, 0.25 + idx * 0.18);
-  const r = Math.min(255, Math.round(r0 + (255 - r0) * f));
-  const g = Math.min(255, Math.round(g0 + (255 - g0) * f));
-  const b = Math.min(255, Math.round(b0 + (255 - b0) * f));
-  return `rgb(${r},${g},${b})`;
+// util: clamp
+const clamp = (v:number, lo:number, hi:number) => Math.min(hi, Math.max(lo, v));
+
+// hex -> {r,g,b}
+function hexToRgb(hex: string) {
+  let h = hex.replace("#","").trim();
+  if (h.length === 3) h = h.split("").map(c => c+c).join("");
+  const num = parseInt(h, 16);
+  return { r:(num>>16)&255, g:(num>>8)&255, b:num&255 };
 }
 
-const withAlpha = (rgb: string, a = 1) => rgb.replace(/^rgb\((.+)\)$/, (_, inner) => `rgba(${inner}, ${a})`);
+// {r,g,b} -> {h,s,l} (0-360, 0-100, 0-100)
+function rgbToHsl(r:number, g:number, b:number) {
+  r/=255; g/=255; b/=255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h = 0, s = 0;
+  const l = (max+min)/2;
+  const d = max-min;
+  if (d !== 0) {
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r: h = (g-b)/d + (g < b ? 6 : 0); break;
+      case g: h = (b-r)/d + 2; break;
+      case b: h = (r-g)/d + 4; break;
+    }
+    h *= 60;
+  }
+  return { h, s: s*100, l: l*100 };
+}
+
+// {h,s,l} -> {r,g,b}
+function hslToRgb(h:number, s:number, l:number) {
+  h = (h%360 + 360)%360; s/=100; l/=100;
+  const c = (1 - Math.abs(2*l - 1)) * s;
+  const x = c * (1 - Math.abs(((h/60)%2) - 1));
+  const m = l - c/2;
+  let rp=0,gp=0,bp=0;
+  if (h < 60)       { rp=c; gp=x; bp=0; }
+  else if (h < 120) { rp=x; gp=c; bp=0; }
+  else if (h < 180) { rp=0; gp=c; bp=x; }
+  else if (h < 240) { rp=0; gp=x; bp=c; }
+  else if (h < 300) { rp=x; gp=0; bp=c; }
+  else              { rp=c; gp=0; bp=x; }
+  return {
+    r: Math.round((rp+m)*255),
+    g: Math.round((gp+m)*255),
+    b: Math.round((bp+m)*255),
+  };
+}
+
+// aplica “tons” estáveis por categoria, mantendo o HUE do sub bem distinto
+function tint(baseHex: string, idx: number) {
+  const { r, g, b } = hexToRgb(baseHex);
+  const { h, s, l } = rgbToHsl(r, g, b);
+
+  // passos grandes de lightness pra separar os tons dentro do mesmo SUB
+  // (alternando clarear/escurecer pra evitar tudo ficar pastel)
+  const steps = [0, +14, -12, +28, -22, +36, -30, +44, -38];
+  const dl = steps[Math.min(idx, steps.length - 1)];
+
+  const l2 = clamp(l + dl, 18, 88);          // mantém contraste
+  const s2 = clamp(s + (dl > 0 ? -5 : +0), 55, 95); // evita “lavar” demais
+
+  const { r: R, g: G, b: B } = hslToRgb(h, s2, l2);
+  return `rgb(${R},${G},${B})`;
+}
+
+const withAlpha = (rgb: string, a = 1) =>
+  rgb.startsWith("rgb(")
+    ? rgb.replace(/^rgb\((.+)\)$/, (_, inner) => `rgba(${inner}, ${a})`)
+    : rgb; // se vier diferente, deixa como está
+
+
+const absArr = (a?: (number|null)[]) => (a ?? []).map(v => v == null ? v : Math.abs(Number(v)));
 
 const normSub = (s: any): Sub | null => {
   const v = String(s ?? "").toUpperCase().trim();
@@ -541,17 +604,14 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       const tipo = rest.join(" ");
       const color = colorFor(sub, tipo);
 
-      // principal (contínua)
       if (priceMain[name]?.some(v => v != null)) {
-        seriesPrice.push(mkLine(`price|${name}|main`, name, priceMain[name], color, false, false, true));
+        seriesPrice.push(mkLine(`price|${name}|main`, name, absArr(priceMain[name]), color, false, false, true));
       }
-      // média compra (tracejada + símbolos + NÃO conectar nulos)
       if (priceBuyAvg[name]?.some(v => v != null)) {
-        seriesPrice.push(mkLine(`price|${name}|buy`, name, priceBuyAvg[name], color, true, true, false));
+        seriesPrice.push(mkLine(`price|${name}|buy`,  name, absArr(priceBuyAvg[name]),  color, true,  true,  false));
       }
-      // média venda (tracejada + símbolos + NÃO conectar nulos)
       if (priceSellAvg[name]?.some(v => v != null)) {
-        seriesPrice.push(mkLine(`price|${name}|sell`, name, priceSellAvg[name], color, true, true, false));
+        seriesPrice.push(mkLine(`price|${name}|sell`, name, absArr(priceSellAvg[name]), color, true,  true,  false));
       }
     });
 
@@ -559,58 +619,70 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     const BAR_WIDE = { barMaxWidth: 26, barMinHeight: 3, barCategoryGap: "12%", barGap: "-10%" };
     const BAR_WIDE_AGG = { barMaxWidth: 22, barMinHeight: 3, barCategoryGap: "16%", barGap: "20%" };
 
+    // ===== SERIES MTM / VOL / REV =====
+    // duas colunas: 1) Total (sem stack)  2) Todos combos empilhados
+    const BAR_TOTAL   = { barMaxWidth: 26, barCategoryGap: "35%", barGap: "45%", barMinHeight: 3 };
+    const BAR_STACKED = { barMaxWidth: 26, barCategoryGap: "35%", barGap: "0%",  barMinHeight: 3 };
+
     const seriesMtm: any[] = [];
     const seriesVol: any[] = [];
     const seriesRev: any[] = [];
 
-    if (anyPairSelected) {
-      selectedPairs.forEach(({ sub, tipo }) => {
-        const key = `${sub}|${tipo}` as `${Sub}|${string}`;
-        const color = colorFor(sub, tipo);
+    // --- Coluna 1: TOTAL ---
+    seriesMtm.push({
+      name: "MtM · Total",
+      type: "bar", xAxisIndex: 1, yAxisIndex: 1,
+      data: mtmTOTAL,
+      itemStyle: { color: COLORS.total },
+      ...BAR_TOTAL,
+    });
+    seriesVol.push({
+      name: "Vol · Total",
+      type: "bar", xAxisIndex: 2, yAxisIndex: 2,
+      data: volumeTOTAL,
+      itemStyle: { color: COLORS.total },
+      ...BAR_TOTAL,
+    });
+    seriesRev.push({
+      name: "Rev · Total",
+      type: "bar", xAxisIndex: 3, yAxisIndex: 3,
+      data: revenueTOTAL,
+      itemStyle: { color: COLORS.total },
+      ...BAR_TOTAL,
+    });
 
-        seriesMtm.push({
-          name: `MtM ${sub}·${tipo}`,
-          type: "bar", xAxisIndex: 1, yAxisIndex: 1,
-          stack: `mtm-${sub}`, data: S(mtmByCombo[key]),
-          itemStyle: { color }, ...BAR_WIDE,
-        });
+    // --- Coluna 2: TODOS OS COMBOS (Sub × Fonte) EMPILHADOS ---
+    combos.forEach((key) => {
+      const [sub, tipo] = key.split("|") as [Sub, string];
+      const color = colorFor(sub, tipo);
 
-        seriesVol.push({
-          name: `Vol ${sub}·${tipo}`,
-          type: "bar", xAxisIndex: 2, yAxisIndex: 2,
-          stack: `vol-${sub}`, data: S(volByCombo[key]),
-          itemStyle: { color }, ...BAR_WIDE,
-        });
-
-        seriesRev.push({
-          name: `Rev ${sub}·${tipo}`,
-          type: "bar", xAxisIndex: 3, yAxisIndex: 3,
-          stack: `rev-${sub}`, data: S(revByCombo[key]),
-          itemStyle: { color }, ...BAR_WIDE,
-        });
+      seriesMtm.push({
+        name: `MtM ${sub}·${tipo}`,
+        type: "bar", xAxisIndex: 1, yAxisIndex: 1,
+        stack: "mtm-all",                  // <- único stack pra virar UMA coluna empilhada
+        data: S(mtmByCombo[key]),
+        itemStyle: { color },
+        ...BAR_STACKED,
       });
-    } else {
-      SUBS.forEach((s) => {
-        seriesMtm.push({
-          name: `MtM · Sub ${s}`,
-          type: "bar", xAxisIndex: 1, yAxisIndex: 1,
-          stack: "mtm-sub", data: S(mtmBySub[s]),
-          itemStyle: { color: COLORS[s] as string }, ...BAR_WIDE,
-        });
-        seriesVol.push({
-          name: `Vol · Sub ${s}`,
-          type: "bar", xAxisIndex: 2, yAxisIndex: 2,
-          stack: "vol-sub", data: S(volBySub[s]),
-          itemStyle: { color: COLORS[s] as string }, ...BAR_WIDE,
-        });
-        seriesRev.push({
-          name: `Rev · Sub ${s}`,
-          type: "bar", xAxisIndex: 3, yAxisIndex: 3,
-          stack: "rev-sub", data: S(revBySub[s]),
-          itemStyle: { color: COLORS[s] as string }, ...BAR_WIDE,
-        });
+
+      seriesVol.push({
+        name: `Vol ${sub}·${tipo}`,
+        type: "bar", xAxisIndex: 2, yAxisIndex: 2,
+        stack: "vol-all",
+        data: S(volByCombo[key]),
+        itemStyle: { color },
+        ...BAR_STACKED,
       });
-    }
+
+      seriesRev.push({
+        name: `Rev ${sub}·${tipo}`,
+        type: "bar", xAxisIndex: 3, yAxisIndex: 3,
+        stack: "rev-all",
+        data: S(revByCombo[key]),
+        itemStyle: { color },
+        ...BAR_STACKED,
+      });
+    });
 
     // Séries agregadas (sempre visíveis)
     const seriesAgg = [
@@ -820,8 +892,8 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         type: "category",
         gridIndex: i,
         data: categories,
-        boundaryGap: i !== 0,
-        axisTick: { show: i === 3 },
+        boundaryGap: true,                    // <- alinhado com as barras
+        axisTick: { show: i === 3, alignWithLabel: true },
         axisLabel: i === 3 ? { margin: 10 } : { show: false },
       })),
 
