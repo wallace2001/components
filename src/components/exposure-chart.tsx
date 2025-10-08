@@ -76,11 +76,6 @@ const normMonth = (d: string | Date) => {
   return `${y}-${pad2(m)}-01`;
 };
 
-const isDateKey = (k: string) => !isNaN(new Date(k).getTime());
-
-/** Tenta extrair um mapa { ISOstring: number } de dentro de obj.
- * Suporta: direto (k=ISO → v=number) ou aninhado em price/prices/value/data/etc.
- */
 function pickSeries(obj: any): Record<string, number> | null {
   if (!obj || typeof obj !== "object") return null;
 
@@ -447,6 +442,7 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       };
     }
   }
+  
 
   const buyAvgByMonth: Record<ComboKey, Record<string, number>> = {};
   const sellAvgByMonth: Record<ComboKey, Record<string, number>> = {};
@@ -559,6 +555,12 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     return Object.fromEntries(sorted.map((t, i) => [t, i])) as Record<string, number>;
   }, [tiposAll]);
 
+  const anyPairSelected = selectedPairs.length > 0;
+
+  // 👉 só mostra pares selecionados; se nada selecionado, mostra todos
+  const allowPair = (sub: Sub, tipo: string) =>
+    !anyPairSelected || selectedPairs.some(p => p.sub === sub && p.tipo === tipo);
+
   const option = useMemo(() => {
     const S = (a?: (number | null)[]) => (a ?? arr(len, 0));
     const colorFor = (sub: Sub, tipo: string) => {
@@ -575,11 +577,13 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       name: string,
       data: (number|null)[],
       color: string,
-      dashed = false,
-      withSymbols = false,
+      kind: "main" | "buy" | "sell",
       connect = true
     ) => {
-      const lineColor = dashed ? withAlpha(color, 0.8) : color; // mesmas cores, médias com leve alpha
+      const lineColor = kind === "main" ? color : withAlpha(color, 0.9);
+      const lineType  = kind === "buy" ? "dashed" : kind === "sell" ? "dashed" : "solid";
+      const symbol    = kind === "buy" ? "emptyCircle" : kind === "sell" ? "triangle" : "circle";
+
       return {
         id,
         name,
@@ -587,14 +591,22 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         xAxisIndex: 0,
         yAxisIndex: 0,
         data,
-        showSymbol: withSymbols ? "auto" : false,
-        symbol: "circle",
-        symbolSize: 4,
-        lineStyle: { width: dashed ? 1.6 : 2.2, type: dashed ? "dashed" : "solid", color: lineColor },
-        itemStyle: { color: lineColor },
-        connectNulls: connect,
-        z: dashed ? 3 : 4,
-        emphasis: { lineStyle: { width: dashed ? 2 : 3 } },
+        showSymbol: "auto",
+        symbol,
+        symbolSize: 5,
+        lineStyle: { width: kind === "main" ? 2.4 : 2, type: lineType, color: lineColor },
+
+        // 👇 BUY antes estava color:"#fff" (sumia no tooltip). Agora deixo 'color' = lineColor
+        //    e como o símbolo é 'emptyCircle', ele continua vazado no gráfico.
+        itemStyle:
+          kind === "buy"
+            ? { color: lineColor, borderColor: lineColor, borderWidth: 1.6 }
+            : { color: lineColor },
+
+        symbolKeepAspect: true,
+        connectNulls: connect && kind === "main",
+        z: kind === "main" ? 4 : 3,
+        emphasis: { lineStyle: { width: kind === "main" ? 3 : 2.4 } },
       };
     };
 
@@ -605,55 +617,35 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       const color = colorFor(sub, tipo);
 
       if (priceMain[name]?.some(v => v != null)) {
-        seriesPrice.push(mkLine(`price|${name}|main`, name, absArr(priceMain[name]), color, false, false, true));
+        seriesPrice.push(
+          mkLine(`price|${name}|main`, name, absArr(priceMain[name]), color, "main")
+        );
       }
       if (priceBuyAvg[name]?.some(v => v != null)) {
-        seriesPrice.push(mkLine(`price|${name}|buy`,  name, absArr(priceBuyAvg[name]),  color, true,  true,  false));
+        seriesPrice.push(
+          mkLine(`price|${name}|buy`, name, absArr(priceBuyAvg[name]), color, "buy", false)
+        );
       }
       if (priceSellAvg[name]?.some(v => v != null)) {
-        seriesPrice.push(mkLine(`price|${name}|sell`, name, absArr(priceSellAvg[name]), color, true,  true,  false));
+        seriesPrice.push(
+          mkLine(`price|${name}|sell`, name, absArr(priceSellAvg[name]), color, "sell", false)
+        );
       }
     });
-
-    // ===== SERIES MTM / VOL / REV =====
-    const BAR_WIDE = { barMaxWidth: 26, barMinHeight: 3, barCategoryGap: "12%", barGap: "-10%" };
     const BAR_WIDE_AGG = { barMaxWidth: 22, barMinHeight: 3, barCategoryGap: "16%", barGap: "20%" };
 
-    // ===== SERIES MTM / VOL / REV =====
     // duas colunas: 1) Total (sem stack)  2) Todos combos empilhados
-    const BAR_TOTAL   = { barMaxWidth: 26, barCategoryGap: "35%", barGap: "45%", barMinHeight: 3 };
     const BAR_STACKED = { barMaxWidth: 26, barCategoryGap: "35%", barGap: "0%",  barMinHeight: 3 };
 
     const seriesMtm: any[] = [];
     const seriesVol: any[] = [];
     const seriesRev: any[] = [];
 
-    // --- Coluna 1: TOTAL ---
-    seriesMtm.push({
-      name: "MtM · Total",
-      type: "bar", xAxisIndex: 1, yAxisIndex: 1,
-      data: mtmTOTAL,
-      itemStyle: { color: COLORS.total },
-      ...BAR_TOTAL,
-    });
-    seriesVol.push({
-      name: "Vol · Total",
-      type: "bar", xAxisIndex: 2, yAxisIndex: 2,
-      data: volumeTOTAL,
-      itemStyle: { color: COLORS.total },
-      ...BAR_TOTAL,
-    });
-    seriesRev.push({
-      name: "Rev · Total",
-      type: "bar", xAxisIndex: 3, yAxisIndex: 3,
-      data: revenueTOTAL,
-      itemStyle: { color: COLORS.total },
-      ...BAR_TOTAL,
-    });
-
     // --- Coluna 2: TODOS OS COMBOS (Sub × Fonte) EMPILHADOS ---
     combos.forEach((key) => {
       const [sub, tipo] = key.split("|") as [Sub, string];
+      if (!allowPair(sub, tipo)) return;   // <- 🔴 FILTRO AQUI
+
       const color = colorFor(sub, tipo);
 
       seriesMtm.push({
@@ -690,8 +682,8 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
         data: mtmTOTAL, itemStyle: { color: COLORS.total }, ...BAR_WIDE_AGG },
       { name: "Total", type: "bar", xAxisIndex: 2, yAxisIndex: 2,
         data: volumeTOTAL, itemStyle: { color: COLORS.total }, ...BAR_WIDE_AGG },
-      { name: "Vendido",  type: "bar", xAxisIndex: 2, yAxisIndex: 2,
-        stack: "vol-vs", data: volVendido, ...BAR_WIDE_AGG },
+      { name: "Vendido",  type: "line", xAxisIndex: 2, yAxisIndex: 2,
+        stack: "vol-vs", data: volVendido, smooth:false, showSymbol:false, z:4 },
       { name: "Comprado", type: "bar", xAxisIndex: 2, yAxisIndex: 2,
         stack: "vol-vs", data: volComprado, ...BAR_WIDE_AGG },
       { name: "Net",      type: "line",xAxisIndex: 2, yAxisIndex: 2, data: volNetTOTAL, smooth:false, showSymbol:false, z:4 },
@@ -725,13 +717,33 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
             : ai === 2 ? fmtVol(+v)
             : fmtBRLFull(+v);
 
-          const dot = (c: string) =>
-            `<span style="display:inline-block;width:10px;height:10px;background:${Array.isArray(c)?c[0]:c};border-radius:50%;margin-right:6px;"></span>`;
+
+          const marker = (p:any) => {
+            const color = Array.isArray(p.color) ? p.color[0] : p.color;
+            const id = String(p.seriesId || "");
+            const nm = String(p.seriesName || "");
+
+            // além de "|buy"/"|sell", pega nomes: compra, comprado, buy / venda, vendido, sell
+            const isBuy  = id.endsWith("|buy")  || /(^|\W)(compra|comprado|buy)(\W|$)/i.test(nm);
+            const isSell = id.endsWith("|sell") || /(^|\W)(venda|vendido|sell)(\W|$)/i.test(nm);
+
+            if (isBuy) {
+              return `<span style="display:inline-block;width:10px;height:10px;border:2px solid ${color};
+                border-radius:50%;background:#fff;margin-right:6px;"></span>`;
+            }
+            if (isSell) {
+              return `<span style="display:inline-block;width:12px;height:0;border-top:2px dashed ${color};
+                margin:0 4px 0 0;transform:translateY(-2px)"></span>`;
+            }
+            // mantém o resto como estava
+            return `<span style="display:inline-block;width:10px;height:10px;background:${color};
+              border-radius:50%;margin-right:6px;"></span>`;
+          };
 
           const row = (p: any, label: string) => {
             if (p?.data == null) return "";
             return `<div style="display:flex;justify-content:space-between;gap:12px;line-height:1.2;margin:2px 0;">
-              <div>${dot(p.color)}${label}</div>
+              <div>${marker(p)}${label}</div>
               <div style="text-align:right;min-width:92px">${fmt(p.axisIndex, +p.data)}</div>
             </div>`;
           };
