@@ -147,6 +147,8 @@ function tint(base: string, idx: number) {
   return `rgb(${r},${g},${b})`;
 }
 
+const withAlpha = (rgb: string, a = 1) => rgb.replace(/^rgb\((.+)\)$/, (_, inner) => `rgba(${inner}, ${a})`);
+
 const normSub = (s: any): Sub | null => {
   const v = String(s ?? "").toUpperCase().trim();
   switch (v) {
@@ -489,9 +491,17 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
     return out;
   }, [legendSel]);
 
+  const toneIdxByTipo = useMemo(() => {
+    const sorted = [...tiposAll].sort((a, b) => a.localeCompare(b));
+    return Object.fromEntries(sorted.map((t, i) => [t, i])) as Record<string, number>;
+  }, [tiposAll]);
+
   const option = useMemo(() => {
     const S = (a?: (number | null)[]) => (a ?? arr(len, 0));
-    const colorFor = (sub: Sub, tipo: string) => tint(COLORS[sub], Math.max(0, tiposAll.indexOf(tipo)));
+    const colorFor = (sub: Sub, tipo: string) => {
+      const idx = toneIdxByTipo[tipo] ?? 0;       // tom estável por categoria
+      return tint(COLORS[sub], idx);              // mesma base por SUB, varia só o tom
+    };
     const anyPairSelected = selectedPairs.length > 0;
 
     // ==== SERIES PRICE (grid 0) ====
@@ -505,24 +515,25 @@ export default function ExposureChart({ monthly, height = 780 }: { monthly: Mont
       dashed = false,
       withSymbols = false,
       connect = true
-    ) => ({
-      id,
-      name,
-      type: "line",
-      xAxisIndex: 0,
-      yAxisIndex: 0,
-      data,
-      // símbolos ON para séries esparsas (buy/sell) para aparecer ponto isolado
-      showSymbol: withSymbols ? "auto" : false,
-      symbol: "circle",
-      symbolSize: 4,
-      // usar lineStyle para cor/traço
-      lineStyle: { width: dashed ? 1.6 : 2.2, type: dashed ? "dashed" : "solid", color },
-      itemStyle: { color }, // deixa aqui só para o símbolo
-      connectNulls: connect, // para médias: false (não ligar buracos)
-      z: dashed ? 3 : 4,
-      emphasis: { lineStyle: { width: dashed ? 2 : 3 } },
-    });
+    ) => {
+      const lineColor = dashed ? withAlpha(color, 0.8) : color; // mesmas cores, médias com leve alpha
+      return {
+        id,
+        name,
+        type: "line",
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data,
+        showSymbol: withSymbols ? "auto" : false,
+        symbol: "circle",
+        symbolSize: 4,
+        lineStyle: { width: dashed ? 1.6 : 2.2, type: dashed ? "dashed" : "solid", color: lineColor },
+        itemStyle: { color: lineColor },
+        connectNulls: connect,
+        z: dashed ? 3 : 4,
+        emphasis: { lineStyle: { width: dashed ? 2 : 3 } },
+      };
+    };
 
     priceKeys.forEach((name) => {
       const [subStr, ...rest] = name.split(" ");
